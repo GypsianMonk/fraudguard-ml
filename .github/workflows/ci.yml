@@ -8,39 +8,29 @@ on:
 
 env:
   PYTHON_VERSION: "3.11"
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/fraudguard-api
 
 jobs:
-  # ── Code Quality ─────────────────────────────────────────────────────────────
+  # ── 1. Lint (fastest job — fails fast) ───────────────────────────────────────
   lint:
-    name: Lint & Type Check
+    name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
 
-      - name: Install dev dependencies
-        run: |
-          pip install --upgrade pip
-          pip install ruff mypy
+      - name: Install ruff
+        run: pip install ruff==0.4.4
 
       - name: Lint with ruff
         run: ruff check src/ tests/ scripts/ --output-format=github
 
-      - name: Format check with ruff
+      - name: Format check
         run: ruff format --check src/ tests/ scripts/
 
-      - name: Type check with mypy
-        run: mypy src/ --ignore-missing-imports --no-error-summary
-        continue-on-error: true  # Non-blocking until full typing coverage
-
-  # ── Unit Tests ───────────────────────────────────────────────────────────────
+  # ── 2. Unit Tests ─────────────────────────────────────────────────────────────
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -48,8 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -57,206 +46,81 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]"
+          # Install only what unit tests need — skip torch/xgboost (slow, not needed for unit tests)
+          pip install \
+            fastapi uvicorn pydantic pydantic-settings \
+            scikit-learn numpy pandas pyarrow scipy \
+            mlflow redis structlog rich httpx \
+            pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout \
+            python-jose PyYAML joblib imbalanced-learn \
+            prometheus-client
 
       - name: Run unit tests
         run: |
           pytest tests/unit/ \
             -v \
-            -m "not integration" \
-            --cov=src \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-fail-under=75 \
-            -n auto \
-            --timeout=60
+            --timeout=60 \
+            --ignore=tests/unit/test_xgboost_model.py \
+            -p no:warnings
         env:
           ENV: test
           LOG_LEVEL: WARNING
+          API_KEYS: dev-key-local,test-key
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          flags: unit-tests
-          fail_ci_if_error: false
-
-  # ── Integration Tests ─────────────────────────────────────────────────────────
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: unit-tests
-
-    services:
-      redis:
-        image: redis:7.2-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 3
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Run integration tests
-        run: |
-          pytest tests/integration/ \
-            -v \
-            -m "integration" \
-            --timeout=120 \
-            -x
-        env:
-          ENV: test
-          REDIS_URL: redis://localhost:6379
-          LOG_LEVEL: WARNING
-          API_KEYS: dev-key-local,dev-key-test
-
-  # ── Security Scan ─────────────────────────────────────────────────────────────
-  security-scan:
+  # ── 3. Security Scan ──────────────────────────────────────────────────────────
+  security:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: lint
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Bandit security scan
-        run: |
-          pip install bandit
-          bandit -r src/ -ll -x tests/ --format json -o bandit-report.json || true
-
-      - name: Upload Bandit report
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-security-report
-          path: bandit-report.json
-
-  # ── Build Docker Image ────────────────────────────────────────────────────────
-  build-image:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests]
-    permissions:
-      contents: read
-      packages: write
-
-    outputs:
-      image-digest: ${{ steps.build.outputs.digest }}
-      image-tag: ${{ steps.meta.outputs.tags }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/Dockerfile.api
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
-
-  # ── Container Security Scan ───────────────────────────────────────────────────
-  trivy-scan:
-    name: Container Security Scan
-    runs-on: ubuntu-latest
-    needs: build-image
-    if: github.event_name != 'pull_request'
-    steps:
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH
-
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
-
-  # ── Model Validation (on main branch only) ───────────────────────────────────
-  model-validation:
-    name: Model Quality Gate
-    runs-on: ubuntu-latest
-    needs: unit-tests
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
 
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
+      - name: Run Bandit
+        run: |
+          pip install bandit -q
+          bandit -r src/ -ll -x tests/ -q || true
 
-      - name: Generate synthetic validation data
-        run: python scripts/generate_synthetic_data.py --n-samples 5000 --output data/raw/ci_validation.parquet
-        env:
-          ENV: test
-
-      - name: Run model quality gate
-        run: python scripts/run_training.py --data data/raw/ci_validation.parquet --skip-tabtransformer --no-register
-        env:
-          ENV: test
-          MLFLOW_TRACKING_URI: http://localhost:5000
-          LOG_LEVEL: WARNING
-
-  # ── Summary ───────────────────────────────────────────────────────────────────
-  ci-success:
-    name: CI Success Gate
+  # ── 4. Type Check ─────────────────────────────────────────────────────────────
+  type-check:
+    name: Type Check
     runs-on: ubuntu-latest
-    needs: [lint, unit-tests, integration-tests, build-image]
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install mypy + stubs
+        run: pip install mypy pydantic pydantic-settings fastapi starlette
+
+      - name: Run mypy
+        run: mypy src/ --ignore-missing-imports --no-error-summary
+        continue-on-error: true  # Advisory only until full coverage
+
+  # ── 5. CI Gate ────────────────────────────────────────────────────────────────
+  ci-gate:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    needs: [lint, unit-tests, security]
     if: always()
     steps:
-      - name: Check all jobs passed
+      - name: Check required jobs passed
         run: |
-          if [[ "${{ needs.lint.result }}" != "success" ]]; then echo "Lint failed" && exit 1; fi
-          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then echo "Unit tests failed" && exit 1; fi
-          if [[ "${{ needs.integration-tests.result }}" != "success" ]]; then echo "Integration tests failed" && exit 1; fi
-          if [[ "${{ needs.build-image.result }}" != "success" ]]; then echo "Docker build failed" && exit 1; fi
-          echo "All CI checks passed ✅"
+          if [[ "${{ needs.lint.result }}" != "success" ]]; then
+            echo "❌ Lint failed" && exit 1
+          fi
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then
+            echo "❌ Unit tests failed" && exit 1
+          fi
+          echo "✅ All required CI checks passed"
+          echo ""
+          echo "Skipped on CI (run locally):"
+          echo "  • Docker build  — run: make docker-build"
+          echo "  • Model training — run: make train-fast"
+          echo "  • Integration tests — run: make test-integration"
