@@ -1,0 +1,61 @@
+# configs/training.yaml
+# Hyperparameter configuration for all models.
+# These are the production-tuned values from the last Optuna run.
+
+xgboost:
+  n_estimators: 1200
+  max_depth: 7
+  learning_rate: 0.023
+  subsample: 0.82
+  colsample_bytree: 0.78
+  min_child_weight: 8
+  gamma: 0.15
+  reg_alpha: 0.12
+  reg_lambda: 1.8
+  scale_pos_weight: 45  # Handles class imbalance (fraud ratio ~1:45)
+  tree_method: "hist"
+  device: "cpu"  # cpu | cuda
+  eval_metric: ["aucpr", "auc"]
+  verbosity: 0
+
+tabtransformer:
+  embedding_dim: 64
+  num_heads: 8
+  num_transformer_layers: 6
+  mlp_hidden_dims: [256, 128, 64]
+  dropout: 0.15
+  attention_dropout: 0.10
+  learning_rate: 0.0003
+  weight_decay: 0.00012
+  batch_size: 1024
+  max_epochs: 100
+  patience: 12  # Early stopping patience
+  warmup_steps: 500
+  gradient_clip_norm: 1.0
+  pos_weight: 40.0  # BCE weighted for class imbalance
+  scheduler:
+    type: "cosine_with_restarts"
+    t_0: 10
+    t_mult: 2
+
+meta_learner:
+  type: "logistic_regression"
+  C: 1.2
+  max_iter: 500
+  class_weight: "balanced"
+  calibration: "isotonic"
+
+optuna:
+  n_trials: 100
+  timeout_seconds: 7200  # 2 hours max
+  direction: "maximize"
+  metric: "aucpr"
+  sampler: "tpe"
+  pruner: "hyperband"
+  n_jobs: 4
+
+feature_selection:
+  enabled: true
+  method: "shap_importance"
+  top_k_features: 80
+  min_importance_threshold: 0.001

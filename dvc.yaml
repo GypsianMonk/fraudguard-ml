@@ -1,0 +1,95 @@
+# dvc.yaml
+# Data Version Control pipeline definition.
+# Run: dvc repro       — reproduce full pipeline
+#      dvc dag         — visualize pipeline DAG
+#      dvc params diff — compare params across git commits
+
+stages:
+
+  generate_data:
+    cmd: python scripts/generate_synthetic_data.py
+      --n-samples 500000
+      --fraud-rate 0.022
+      --output data/raw/transactions.parquet
+    deps:
+      - scripts/generate_synthetic_data.py
+    outs:
+      - data/raw/transactions.parquet
+    params:
+      - configs/base.yaml:
+          - data.raw_path
+
+  validate_data:
+    cmd: python scripts/validate_data.py
+      --input data/raw/transactions.parquet
+      --output data/processed/validated_transactions.parquet
+    deps:
+      - scripts/validate_data.py
+      - data/raw/transactions.parquet
+    outs:
+      - data/processed/validated_transactions.parquet
+      - reports/data_validation_report.json
+
+  feature_engineering:
+    cmd: python scripts/run_feature_engineering.py
+      --input data/processed/validated_transactions.parquet
+      --output data/features/feature_matrix.parquet
+    deps:
+      - scripts/run_feature_engineering.py
+      - src/features/engineer.py
+      - src/features/temporal.py
+      - src/features/behavioral.py
+      - data/processed/validated_transactions.parquet
+    outs:
+      - data/features/feature_matrix.parquet
+      - data/features/feature_engineer.joblib
+    params:
+      - configs/base.yaml:
+          - data.features_path
+          - training.seed
+
+  train:
+    cmd: python scripts/run_training.py
+      --data data/features/feature_matrix.parquet
+      --output models/artifacts/latest
+      --experiment fraudguard-dvc
+    deps:
+      - scripts/run_training.py
+      - src/models/ensemble.py
+      - src/models/xgboost_model.py
+      - src/models/tabtransformer.py
+      - src/training/trainer.py
+      - src/training/evaluator.py
+      - data/features/feature_matrix.parquet
+    outs:
+      - models/artifacts/latest
+    params:
+      - configs/training.yaml:
+          - xgboost
+          - tabtransformer
+          - meta_learner
+    metrics:
+      - reports/evaluation_report.json:
+          cache: false
+
+  evaluate:
+    cmd: python scripts/run_backtest.py
+      --model models/artifacts/latest
+      --data data/features/feature_matrix.parquet
+      --output reports/backtest_report.json
+    deps:
+      - scripts/run_backtest.py
+      - models/artifacts/latest
+      - data/features/feature_matrix.parquet
+    metrics:
+      - reports/backtest_report.json:
+          cache: false
+    plots:
+      - reports/roc_curve.csv:
+          x: fpr
+          y: tpr
+          title: "ROC Curve"
+      - reports/pr_curve.csv:
+          x: recall
+          y: precision
+          title: "Precision-Recall Curve"

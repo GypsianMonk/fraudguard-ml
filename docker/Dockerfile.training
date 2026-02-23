@@ -1,0 +1,30 @@
+# docker/Dockerfile.training
+# Image for running the training pipeline (can be used in CI or as a K8s Job)
+
+FROM python:3.11-slim AS training
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ git curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir \
+    scikit-learn xgboost torch numpy pandas pyarrow \
+    mlflow optuna shap scipy joblib PyYAML \
+    imbalanced-learn great-expectations dvc structlog rich \
+    redis aiokafka prometheus-client
+
+COPY src/ ./src/
+COPY configs/ ./configs/
+COPY scripts/ ./scripts/
+
+RUN mkdir -p data/raw data/processed data/features models/artifacts mlruns
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+ENTRYPOINT ["python", "scripts/run_training.py"]

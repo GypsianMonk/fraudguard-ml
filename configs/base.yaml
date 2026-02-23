@@ -1,0 +1,113 @@
+# configs/base.yaml
+# Base configuration — all environments inherit from this.
+# Override with environment-specific YAML or ENV vars (ENV vars take precedence).
+
+app:
+  name: "FraudGuard ML"
+  version: "2.1.0"
+  environment: ${ENV:dev}  # dev | staging | prod
+  debug: false
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  timeout: 30
+  max_request_size_mb: 10
+  cors_origins:
+    - "http://localhost:3000"
+    - "https://dashboard.company.com"
+  rate_limit:
+    requests_per_minute: 1000
+    burst: 200
+
+model:
+  version: ${MODEL_VERSION:latest}
+  artifact_path: "models/artifacts"
+  ensemble:
+    xgboost_weight: 0.45
+    tabtransformer_weight: 0.40
+    meta_learner_weight: 0.15
+  thresholds:
+    low_risk: 0.30
+    medium_risk: 0.60
+    high_risk: 0.85
+  calibration:
+    method: "isotonic"  # isotonic | platt
+    enabled: true
+
+feature_store:
+  backend: "redis"
+  redis_url: ${REDIS_URL:redis://localhost:6379}
+  redis_db: 0
+  ttl_seconds: 86400  # 24h
+  batch_size: 500
+  connection_pool_size: 20
+
+mlflow:
+  tracking_uri: ${MLFLOW_TRACKING_URI:http://localhost:5000}
+  experiment_name: "fraudguard-production"
+  artifact_store: ${MLFLOW_ARTIFACT_STORE:./mlruns}
+  registry_uri: ${MLFLOW_REGISTRY_URI:http://localhost:5000}
+
+kafka:
+  bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  consumer_group: "fraudguard-consumer"
+  topics:
+    transactions: "transactions.raw"
+    predictions: "fraud.predictions"
+    alerts: "fraud.alerts"
+  consumer:
+    auto_offset_reset: "latest"
+    max_poll_records: 500
+    session_timeout_ms: 30000
+  producer:
+    acks: "all"
+    retries: 3
+    compression_type: "lz4"
+
+data:
+  raw_path: "data/raw"
+  processed_path: "data/processed"
+  features_path: "data/features"
+  validation:
+    enabled: true
+    suite_name: "transaction_validation"
+    fail_on_error: false  # Log but don't fail in prod
+  sampling:
+    strategy: "smote"  # smote | adasyn | borderline_smote
+    ratio: 0.15
+
+training:
+  seed: 42
+  test_size: 0.15
+  validation_size: 0.10
+  cv_folds: 5
+  early_stopping_rounds: 50
+  eval_metric: "aucpr"  # Use PR-AUC for imbalanced data
+  target_column: "is_fraud"
+  artifacts_dir: "models/artifacts"
+
+monitoring:
+  metrics_port: 9090
+  drift_detection:
+    enabled: true
+    check_interval_minutes: 60
+    psi_threshold: 0.25
+    ks_threshold: 0.05
+    reference_window_days: 30
+  alerting:
+    pagerduty_key: ${PAGERDUTY_KEY:}
+    slack_webhook: ${SLACK_WEBHOOK:}
+
+logging:
+  level: ${LOG_LEVEL:INFO}
+  format: "json"  # json | console
+  output: "stdout"
+
+security:
+  api_key_header: "X-API-Key"
+  api_keys: ${API_KEYS:dev-key-local}  # Comma-separated in prod
+  jwt_secret: ${JWT_SECRET:dev-secret-change-in-prod}
+  jwt_algorithm: "HS256"
+  jwt_expiry_minutes: 60
