@@ -22,7 +22,7 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader, TensorDataset
 
-from src.core.exceptions import ModelNotFittedError, TrainingError
+from src.core.exceptions import ModelNotFittedError
 from src.core.interfaces import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -129,10 +129,7 @@ class TabTransformerNet(nn.Module):
         cat_out = cat_out.flatten(1)  # (batch, n_cat * embed_dim)
 
         # Normalize numericals
-        if self.num_bn is not None and x_num.shape[1] > 0:
-            num_out = self.num_bn(x_num)
-        else:
-            num_out = x_num
+        num_out = self.num_bn(x_num) if self.num_bn is not None and x_num.shape[1] > 0 else x_num
 
         # Concatenate and classify
         combined = torch.cat([cat_out, num_out], dim=1)
@@ -248,7 +245,8 @@ class TabTransformerModel(BaseModel):
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """Return fraud probabilities."""
         if not self._is_fitted or self._net is None:
-            raise ModelNotFittedError("TabTransformer not fitted")
+            msg = "TabTransformer not fitted"
+raise ModelNotFittedError(msg)
 
         self._net.eval()
         x_cat, x_num = self._prepare_tensors(X)

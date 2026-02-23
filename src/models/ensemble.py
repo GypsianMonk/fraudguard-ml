@@ -166,7 +166,8 @@ class FraudEnsemble(BaseModel):
             1D array of fraud probabilities
         """
         if not self._is_fitted:
-            raise ModelNotFittedError("Ensemble not fitted")
+            msg = "Ensemble not fitted"
+raise ModelNotFittedError(msg)
 
         try:
             xgb_proba = self._xgb.predict_proba(X)
@@ -194,7 +195,8 @@ class FraudEnsemble(BaseModel):
     ) -> dict[str, np.ndarray]:
         """Return individual base learner probabilities (for analysis/debugging)."""
         if not self._is_fitted:
-            raise ModelNotFittedError("Ensemble not fitted")
+            msg = "Ensemble not fitted"
+raise ModelNotFittedError(msg)
         return {
             "xgboost": self._xgb.predict_proba(X),
             "tabtransformer": self._tab.predict_proba(X) if self._tab.is_fitted else np.zeros(len(X)),

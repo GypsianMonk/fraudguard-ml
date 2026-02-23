@@ -17,7 +17,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-import pandas as pd
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
+
 from scipy.stats import ks_2samp
 
 from src.core.interfaces import BaseDriftDetector
@@ -120,8 +126,8 @@ class FraudDriftDetector(BaseDriftDetector):
             msg = "Reference distribution not fitted. Call fit_reference() first."
             raise RuntimeError(msg)
 
-        from datetime import datetime
-        report = DriftReport(timestamp=datetime.utcnow().isoformat())
+        from datetime import datetime, timezone
+        report = DriftReport(timestamp=datetime.now(tz=timezone.utc).isoformat())
 
         numeric_cols = [
             col for col in current_data.select_dtypes(include=[np.number]).columns

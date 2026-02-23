@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 from sklearn.metrics import (
@@ -149,7 +148,7 @@ class ModelEvaluator:
         }
 
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "w") as f:
+        with Path(output_path).open("w") as f:
             json.dump(report, f, indent=2, default=str)
 
         logger.info("Evaluation report saved to %s", output_path)

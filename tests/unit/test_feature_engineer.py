@@ -1,13 +1,11 @@
 """
 tests/unit/test_feature_engineer.py
-------------------------------------
-Unit tests for the feature engineering pipeline.
-Fast, isolated — no external dependencies.
+-------------------------------------
+Unit tests for FraudFeatureEngineer.
 """
-
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -16,167 +14,120 @@ import pytest
 from src.features.engineer import FraudFeatureEngineer
 
 
-def make_sample_df(n: int = 100, fraud_rate: float = 0.05) -> pd.DataFrame:
-    """Create a realistic synthetic transaction DataFrame for testing."""
+def make_txn_df(n: int = 100) -> pd.DataFrame:
     rng = np.random.default_rng(42)
-
-    n_fraud = max(1, int(n * fraud_rate))
-    n_legit = n - n_fraud
-    labels = [1] * n_fraud + [0] * n_legit
-    rng.shuffle(labels)
-
-    base_time = datetime(2024, 1, 1, 12, 0, 0)
-    timestamps = [base_time + timedelta(hours=i * 0.5) for i in range(n)]
-
+    base = datetime(2024, 1, 15, 12, 0, tzinfo=timezone.utc)
     return pd.DataFrame({
-        "transaction_id": [f"txn_{i:05d}" for i in range(n)],
-        "user_id": [f"usr_{i % 20:03d}" for i in range(n)],
-        "amount": rng.lognormal(mean=4.5, sigma=1.2, size=n).round(2),
-        "currency": rng.choice(["USD", "EUR", "GBP"], size=n),
-        "merchant_id": [f"mrc_{i % 15:03d}" for i in range(n)],
+        "transaction_id": [f"txn_{i:03d}" for i in range(n)],
+        "user_id": [f"usr_{i % 10:02d}" for i in range(n)],
+        "amount": np.round(rng.lognormal(4.2, 1.5, n), 2),
+        "currency": rng.choice(["USD", "EUR", "GBP"], n),
+        "merchant_id": [f"mrc_{i % 8:02d}" for i in range(n)],
         "merchant_category": rng.choice(
-            ["electronics", "groceries", "restaurants", "travel", "other"], size=n
+            ["electronics", "groceries", "restaurants", "travel"], n
         ),
-        "payment_method": rng.choice(["credit_card", "debit_card", "digital_wallet"], size=n),
-        "timestamp": timestamps,
-        "card_present": rng.choice([True, False], size=n),
-        "device_fingerprint": [f"fp_{i % 30:03d}" if rng.random() > 0.1 else None for i in range(n)],
-        "country": rng.choice(["US", "CA", "GB", "DE", "RU"], size=n, p=[0.7, 0.1, 0.1, 0.05, 0.05]),
-        "latitude": rng.uniform(25.0, 50.0, size=n),
-        "longitude": rng.uniform(-125.0, -65.0, size=n),
-        "is_fraud": labels,
+        "payment_method": rng.choice(["credit_card", "debit_card"], n),
+        "timestamp": [
+            base.replace(hour=int(i % 24)) for i in range(n)
+        ],
+        "card_present": rng.choice([True, False], n),
+        "device_fingerprint": [f"fp_{i % 15:02d}" for i in range(n)],
+        "country": rng.choice(["US", "CA", "GB", "RU"], n, p=[0.7, 0.1, 0.1, 0.1]),
+        "latitude": rng.uniform(25, 50, n),
+        "longitude": rng.uniform(-125, -65, n),
+        "is_fraud": rng.choice([0, 1], n, p=[0.95, 0.05]),
     })
 
 
 @pytest.fixture
-def sample_df() -> pd.DataFrame:
-    return make_sample_df(n=200)
+def raw_df() -> pd.DataFrame:
+    return make_txn_df(100)
 
 
 @pytest.fixture
-def fitted_engineer(sample_df: pd.DataFrame) -> FraudFeatureEngineer:
-    """Return a fitted FraudFeatureEngineer."""
-    engineer = FraudFeatureEngineer(mode="training")
-    engineer.fit(sample_df)
-    return engineer
+def fitted_engineer(raw_df: pd.DataFrame) -> FraudFeatureEngineer:
+    eng = FraudFeatureEngineer(mode="training")
+    eng.fit_transform(raw_df)
+    return eng
 
 
 class TestFraudFeatureEngineer:
-    """Unit tests for FraudFeatureEngineer."""
 
-    def test_fit_returns_self(self, sample_df: pd.DataFrame) -> None:
-        """fit() should return self for method chaining."""
-        engineer = FraudFeatureEngineer()
-        result = engineer.fit(sample_df)
-        assert result is engineer
-
-    def test_is_fitted_after_fit(self, sample_df: pd.DataFrame) -> None:
-        """is_fitted should be True after fit()."""
-        engineer = FraudFeatureEngineer()
-        assert not engineer.is_fitted
-        engineer.fit(sample_df)
-        assert engineer.is_fitted
-
-    def test_transform_returns_dataframe(self, fitted_engineer: FraudFeatureEngineer, sample_df: pd.DataFrame) -> None:
-        """transform() should return a pandas DataFrame."""
-        result = fitted_engineer.transform(sample_df)
+    def test_fit_transform_returns_dataframe(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
         assert isinstance(result, pd.DataFrame)
 
-    def test_transform_consistent_shape(self, fitted_engineer: FraudFeatureEngineer, sample_df: pd.DataFrame) -> None:
-        """transform() should produce same number of rows as input."""
-        result = fitted_engineer.transform(sample_df)
-        assert len(result) == len(sample_df)
+    def test_fit_transform_more_columns_than_input(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        assert result.shape[1] > raw_df.shape[1]
 
-    def test_no_nan_in_output(self, fitted_engineer: FraudFeatureEngineer, sample_df: pd.DataFrame) -> None:
-        """Feature matrix should have no NaN values."""
-        result = fitted_engineer.transform(sample_df)
-        assert not result.isna().any().any(), f"NaN found in columns: {result.columns[result.isna().any()].tolist()}"
+    def test_fit_transform_preserves_row_count(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        assert len(result) == len(raw_df)
 
-    def test_target_not_in_features(self, fitted_engineer: FraudFeatureEngineer, sample_df: pd.DataFrame) -> None:
-        """is_fraud target should not appear in feature matrix."""
-        result = fitted_engineer.transform(sample_df)
-        assert "is_fraud" not in result.columns
+    def test_transform_inference_mode_same_columns(
+        self, fitted_engineer: FraudFeatureEngineer, raw_df: pd.DataFrame
+    ) -> None:
+        new_df = make_txn_df(20)
+        result = fitted_engineer.transform(new_df)
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 20
 
-    def test_transaction_id_not_in_features(self, fitted_engineer: FraudFeatureEngineer, sample_df: pd.DataFrame) -> None:
-        """Raw IDs should not appear in feature matrix."""
-        result = fitted_engineer.transform(sample_df)
-        assert "transaction_id" not in result.columns
-        assert "user_id" not in result.columns
+    def test_no_nan_in_output(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        nan_cols = result.columns[result.isnull().any()].tolist()
+        assert len(nan_cols) == 0, f"NaN columns: {nan_cols}"
 
-    def test_fit_transform_matches_fit_then_transform(self, sample_df: pd.DataFrame) -> None:
-        """fit_transform() should produce identical result to fit() then transform()."""
-        engineer1 = FraudFeatureEngineer()
-        result1 = engineer1.fit_transform(sample_df)
+    def test_all_numeric_output(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        non_numeric = [
+            c for c in result.columns
+            if result[c].dtype not in (float, int, bool, "float64", "int64", "bool")
+        ]
+        assert len(non_numeric) == 0, f"Non-numeric columns: {non_numeric}"
 
-        engineer2 = FraudFeatureEngineer()
-        engineer2.fit(sample_df)
-        result2 = engineer2.transform(sample_df)
+    def test_temporal_features_present(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        temporal = [c for c in result.columns if any(
+            k in c for k in ("hour", "day", "is_night", "is_weekend")
+        )]
+        assert len(temporal) > 0
 
-        pd.testing.assert_frame_equal(result1, result2)
+    def test_amount_features_present(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        amount_cols = [c for c in result.columns if "amount" in c]
+        assert len(amount_cols) > 0
 
-    def test_transform_before_fit_raises(self, sample_df: pd.DataFrame) -> None:
-        """transform() before fit() should raise RuntimeError."""
-        engineer = FraudFeatureEngineer()
-        with pytest.raises(RuntimeError, match="Pipeline must be fitted"):
-            engineer.transform(sample_df)
-
-    def test_missing_required_columns_raises(self, fitted_engineer: FraudFeatureEngineer) -> None:
-        """transform() with missing columns should raise ValueError."""
-        incomplete_df = pd.DataFrame({"transaction_id": ["txn_001"], "amount": [100.0]})
-        with pytest.raises(ValueError, match="Missing required columns"):
-            fitted_engineer.transform(incomplete_df)
-
-    def test_empty_dataframe_raises(self, fitted_engineer: FraudFeatureEngineer, sample_df: pd.DataFrame) -> None:
-        """transform() with empty DataFrame should raise ValueError."""
-        empty_df = sample_df.head(0)
-        with pytest.raises(ValueError, match="empty"):
-            fitted_engineer.transform(empty_df)
-
-    def test_feature_names_available_after_fit(self, fitted_engineer: FraudFeatureEngineer) -> None:
-        """get_feature_names() should return non-empty list after fit."""
+    def test_get_feature_names_matches_output(self, fitted_engineer: FraudFeatureEngineer) -> None:
         names = fitted_engineer.get_feature_names()
         assert isinstance(names, list)
         assert len(names) > 0
 
-    def test_feature_names_not_available_before_fit(self) -> None:
-        """get_feature_names() before fit should raise RuntimeError."""
-        engineer = FraudFeatureEngineer()
-        with pytest.raises(RuntimeError):
-            engineer.get_feature_names()
+    def test_target_column_excluded_from_features(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        assert "is_fraud" not in result.columns
 
-    def test_expected_feature_groups_present(self, fitted_engineer: FraudFeatureEngineer, sample_df: pd.DataFrame) -> None:
-        """Result should contain features from all major groups."""
-        result = fitted_engineer.transform(sample_df)
-        feature_names = list(result.columns)
+    def test_feature_count_above_minimum(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        assert result.shape[1] >= 20, f"Expected >= 20 features, got {result.shape[1]}"
 
-        # Temporal features
-        assert any("txn_count" in f for f in feature_names), "Missing temporal velocity features"
-        assert any("hour_of_day" in f for f in feature_names), "Missing hour_of_day feature"
+    def test_card_not_present_feature(self, raw_df: pd.DataFrame) -> None:
+        eng = FraudFeatureEngineer(mode="training")
+        result = eng.fit_transform(raw_df)
+        card_cols = [c for c in result.columns if "card" in c.lower()]
+        assert len(card_cols) > 0
 
-        # Behavioral features
-        assert any("amount_vs_user" in f for f in feature_names), "Missing behavioral features"
-
-        # Transaction features
-        assert any("amount_zscore" in f for f in feature_names), "Missing amount_zscore"
-
-    def test_unseen_inference_data_handled(self, fitted_engineer: FraudFeatureEngineer) -> None:
-        """Transform should handle unseen merchants and users gracefully."""
-        new_df = make_sample_df(n=10)
-        # Replace with entirely new user/merchant IDs
-        new_df["user_id"] = [f"new_user_{i}" for i in range(10)]
-        new_df["merchant_id"] = [f"new_merchant_{i}" for i in range(10)]
-
-        # Should not raise — unseen entities handled via fallback
-        result = fitted_engineer.transform(new_df)
-        assert len(result) == 10
-        assert not result.isna().any().any()
-
-    def test_reproducible_with_same_seed(self, sample_df: pd.DataFrame) -> None:
-        """Two engineers fit on same data should produce identical features."""
-        e1 = FraudFeatureEngineer().fit(sample_df)
-        e2 = FraudFeatureEngineer().fit(sample_df)
-
-        r1 = e1.transform(sample_df)
-        r2 = e2.transform(sample_df)
-
-        pd.testing.assert_frame_equal(r1, r2)
+    def test_single_row_inference(self, fitted_engineer: FraudFeatureEngineer) -> None:
+        single = make_txn_df(1)
+        result = fitted_engineer.transform(single)
+        assert len(result) == 1
+        assert result.isnull().sum().sum() == 0

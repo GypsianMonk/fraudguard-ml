@@ -16,7 +16,6 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.pipeline import Pipeline
 
 from src.core.exceptions import ModelNotFittedError, TrainingError
 from src.core.interfaces import BaseModel

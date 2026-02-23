@@ -156,7 +156,7 @@ class TestModelEvaluator:
             evaluator.save_report(y_true, y_proba, report_path)
 
             assert Path(report_path).exists()
-            with open(report_path) as f:
+            with Path(report_path) as f:
                 report = json.load(f)
 
             assert "metrics" in report
@@ -170,7 +170,7 @@ class TestModelEvaluator:
             report_path = str(Path(tmp_dir) / "report.json")
             evaluator.save_report(y_true, y_proba, report_path)
 
-            with open(report_path) as f:
+            with Path(report_path) as f:
                 report = json.load(f)
 
             cm = report["confusion_matrix"]

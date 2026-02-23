@@ -10,15 +10,13 @@ Mark: @pytest.mark.integration
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+MagicMock, patch
 
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
 from src.api.app import create_app
-from src.core.config import get_settings
 
 
 @pytest.fixture(scope="module")

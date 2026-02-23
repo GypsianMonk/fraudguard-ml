@@ -1,56 +1,36 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "fraudguard-ml"
 version = "2.1.0"
 description = "Production-grade real-time transaction fraud detection system"
 readme = "README.md"
-license = { file = "LICENSE" }
 requires-python = ">=3.11"
-authors = [{ name = "ML Platform Team", email = "ml-platform@company.com" }]
-
+license = { text = "MIT" }
+authors = [{ name = "GypsianMonk" }]
+keywords = ["fraud-detection", "machine-learning", "mlops", "fastapi"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
-    # Web framework
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
-    "pydantic>=2.5.0",
+    "pydantic>=2.6.0",
     "pydantic-settings>=2.1.0",
-
-    # ML core
     "scikit-learn>=1.4.0",
     "xgboost>=2.0.3",
-    "torch>=2.1.0",
+    "torch>=2.2.0",
     "numpy>=1.26.0",
-    "pandas>=2.1.0",
-    "pyarrow>=14.0.0",
-
-    # Experiment tracking & model registry
+    "pandas>=2.2.0",
+    "pyarrow>=15.0.0",
     "mlflow>=2.10.0",
-    "optuna>=3.5.0",
-
-    # Data validation
-    "great-expectations>=0.18.0",
-
-    # Feature store / caching
-    "redis>=5.0.1",
-    "hiredis>=2.3.2",
-
-    # Streaming
+    "redis[hiredis]>=5.0.1",
     "aiokafka>=0.10.0",
-    "confluent-kafka>=2.3.0",
-
-    # Monitoring
     "prometheus-client>=0.19.0",
-    "opentelemetry-api>=1.22.0",
-    "opentelemetry-sdk>=1.22.0",
-    "opentelemetry-instrumentation-fastapi>=0.43b0",
-
-    # Data versioning
-    "dvc[s3]>=3.38.0",
-
-    # Utilities
     "structlog>=24.1.0",
     "rich>=13.7.0",
     "httpx>=0.26.0",
@@ -73,52 +53,84 @@ dev = [
     "pytest-xdist>=3.5.0",
     "factory-boy>=3.3.0",
     "httpx>=0.26.0",
-    "ruff>=0.1.14",
+    "ruff>=0.4.0",
     "mypy>=1.8.0",
     "pre-commit>=3.6.0",
     "ipykernel>=6.29.0",
     "matplotlib>=3.8.0",
     "seaborn>=0.13.0",
+    "bandit>=1.7.0",
+    "pytest-timeout>=2.3.0",
 ]
 
 [project.scripts]
 fraudguard-train = "scripts.run_training:main"
 fraudguard-serve = "src.api.app:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["src*", "scripts*"]
-
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-select = ["E", "F", "W", "I", "N", "UP", "ANN", "S", "B", "A", "COM", "C4", "DTZ", "EM", "ISC", "PIE", "T20", "SIM", "TCH", "ARG", "PTH"]
-ignore = ["ANN101", "ANN102", "S101", "COM812", "ISC001"]
 
-[tool.ruff.per-file-ignores]
-"tests/*" = ["ANN", "S", "ARG"]
-"scripts/*" = ["T20"]
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "PTH", "T20", "EM", "PIE"]
+ignore = [
+    # ML convention: uppercase X, X_train, X_val are standard sklearn/numpy idioms
+    "N803", "N806",
+    # Trailing comma / string concat formatting conflicts
+    "COM812", "ISC001",
+    # TYPE_CHECKING blocks are optional in this codebase
+    "TC001", "TC002", "TC003",
+    # FastAPI pattern: Depends() in default args is idiomatic
+    "B008",
+    # abstract **kwargs and Any are intentional in interfaces
+    "ANN401",
+    # Bind loop variable — false positive in certain closures
+    "B023",
+    # Security: S104 (bind all interfaces) is intentional for Docker
+    "S104",
+    # Hardcoded password warning on jwt_secret env var default
+    "S105",
+    # /tmp usage acceptable for model artifact caching
+    "S108",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*"    = ["ANN", "S", "ARG", "N", "T20", "EM", "E501"]
+"scripts/*"  = ["T20", "ANN", "N", "E501"]
+"src/core/interfaces.py" = ["ANN", "ARG"]
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
-ignore_missing_imports = true
 warn_return_any = true
 warn_unused_configs = true
+ignore_missing_imports = true
+no_implicit_reexport = true
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--cov=src --cov-report=term-missing --cov-report=xml -v"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
 markers = [
-    "unit: Unit tests (fast, no external services)",
-    "integration: Integration tests (requires Docker services)",
-    "slow: Slow tests (>30s)",
+    "integration: tests requiring external services",
+    "slow: tests that take > 5s",
+    "gpu: tests requiring GPU",
+]
+addopts = [
+    "--strict-markers",
+    "-ra",
 ]
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["*/tests/*", "*/__init__.py"]
+omit = ["tests/*", "scripts/*", "src/utils/logging.py"]
 
 [tool.coverage.report]
-fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]

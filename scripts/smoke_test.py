@@ -13,7 +13,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import time
 from dataclasses import dataclass, field
@@ -270,7 +269,8 @@ class SmokeTestSuite:
                     latencies.append(latency)
 
             if not latencies:
-                raise AssertionError("No successful predictions for latency test")
+                msg = "No successful predictions for latency test"
+raise AssertionError(msg)
 
             import statistics
             p99 = sorted(latencies)[int(len(latencies) * 0.99)] if len(latencies) > 1 else latencies[0]

@@ -7,7 +7,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any
+
 import pandas as pd
+
 from src.core.interfaces import BaseDataIngester
 
 logger = logging.getLogger(__name__)

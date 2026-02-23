@@ -13,7 +13,13 @@ from typing import Any
 import mlflow
 import numpy as np
 import optuna
-import pandas as pd
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
+
 from sklearn.metrics import average_precision_score
 from sklearn.model_selection import StratifiedKFold
 

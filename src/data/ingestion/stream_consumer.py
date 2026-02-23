@@ -7,10 +7,10 @@ Consumes from 'transactions.raw' topic and publishes predictions to 'fraud.predi
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from src.core.config import get_settings
 

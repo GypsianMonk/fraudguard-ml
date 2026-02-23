@@ -153,7 +153,7 @@ def main() -> None:
     if args.output_metrics:
         metrics_path = Path(args.output_metrics)
         metrics_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(metrics_path, "w") as f:
+        with metrics_path.open("w") as f:
             json.dump(results["metrics"], f, indent=2, default=str)
         logger.info("Metrics written to %s", metrics_path)
 
