@@ -1,9 +1,11 @@
 name: CD Pipeline
 
+# Only run CD on version tags (v1.0.0) or manual trigger.
+# NOT on every push to main — that's what CI is for.
 on:
   push:
-    branches: [main]
-    tags: ["v*.*.*"]
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       environment:
@@ -16,31 +18,123 @@ on:
         description: "Model version to deploy (leave empty for latest)"
         required: false
         type: string
+      dry_run:
+        description: "Dry run (validate config without deploying)"
+        required: false
+        default: "true"
+        type: choice
+        options: ["true", "false"]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/fraudguard-api
 
 jobs:
-  # ── Deploy to Staging ─────────────────────────────────────────────────────────
-  deploy-staging:
-    name: Deploy to Staging
+  # ── Validate secrets are configured ──────────────────────────────────────────
+  preflight:
+    name: Preflight Check
     runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://fraudguard-staging.company.com
-    concurrency:
-      group: staging-deploy
-      cancel-in-progress: false
+    outputs:
+      staging_ready: ${{ steps.check.outputs.staging_ready }}
+      production_ready: ${{ steps.check.outputs.production_ready }}
+    steps:
+      - name: Check deployment secrets
+        id: check
+        run: |
+          staging_ready=false
+          production_ready=false
+
+          if [ -n "${{ secrets.STAGING_HOST }}" ] && \
+             [ -n "${{ secrets.STAGING_USER }}" ] && \
+             [ -n "${{ secrets.STAGING_SSH_KEY }}" ]; then
+            staging_ready=true
+          fi
+
+          if [ -n "${{ secrets.PROD_HOST }}" ] && \
+             [ -n "${{ secrets.PROD_USER }}" ] && \
+             [ -n "${{ secrets.PROD_SSH_KEY }}" ]; then
+            production_ready=true
+          fi
+
+          echo "staging_ready=$staging_ready" >> $GITHUB_OUTPUT
+          echo "production_ready=$production_ready" >> $GITHUB_OUTPUT
+
+          echo "## Preflight Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Staging secrets configured: $staging_ready" >> $GITHUB_STEP_SUMMARY
+          echo "- Production secrets configured: $production_ready" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$staging_ready" = "false" ] && [ "$production_ready" = "false" ]; then
+            echo ""  >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ No deployment secrets are configured." >> $GITHUB_STEP_SUMMARY
+            echo "Add secrets at: https://github.com/${{ github.repository }}/settings/secrets/actions" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ── Build & push Docker image ─────────────────────────────────────────────────
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: preflight
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set image tag
-        id: image
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Image build summary
         run: |
-          SHA=$(echo ${{ github.sha }} | head -c7)
-          echo "tag=sha-${SHA}" >> $GITHUB_OUTPUT
+          echo "## Docker Image Built ✅" >> $GITHUB_STEP_SUMMARY
+          echo "Tags: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+
+  # ── Deploy to Staging ─────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [preflight, build]
+    if: |
+      needs.preflight.outputs.staging_ready == 'true' &&
+      (github.event.inputs.dry_run != 'true') &&
+      (github.event.inputs.environment == 'staging' || startsWith(github.ref, 'refs/tags/'))
+    environment:
+      name: staging
+      url: https://fraudguard-staging.example.com
+
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Deploy to staging via SSH
         uses: appleboy/ssh-action@v1
@@ -50,54 +144,42 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             cd /opt/fraudguard-ml
-            export IMAGE_TAG=${{ steps.image.outputs.tag }}
-            export MODEL_VERSION=${{ github.event.inputs.model_version || 'latest' }}
             docker-compose -f docker-compose.prod.yml pull api
             docker-compose -f docker-compose.prod.yml up -d --no-deps api
             sleep 15
-            curl -f http://localhost:8000/ready || (echo "Readiness check failed!" && exit 1)
+            curl -f http://localhost:8000/ready || exit 1
+            echo "Staging deploy successful"
 
-      - name: Run smoke tests against staging
+      - name: Run smoke tests
         run: |
-          pip install httpx
+          pip install httpx -q
           python scripts/smoke_test.py \
-            --base-url https://fraudguard-staging.company.com \
+            --base-url ${{ secrets.STAGING_URL }} \
             --api-key ${{ secrets.STAGING_API_KEY }}
 
-      - name: Notify Slack on staging deploy
+      - name: Staging deploy summary
         if: always()
-        uses: slackapi/slack-github-action@v1
-        with:
-          payload: |
-            {
-              "text": "🚀 FraudGuard ML deployed to *staging*\nCommit: ${{ github.sha }}\nStatus: ${{ job.status }}"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          echo "## Staging Deploy: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
 
-  # ── Blue/Green Production Deploy ─────────────────────────────────────────────
+  # ── Deploy to Production ──────────────────────────────────────────────────────
   deploy-production:
-    name: Deploy to Production (Blue/Green)
+    name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: deploy-staging
-    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
+    needs: [preflight, deploy-staging]
+    if: |
+      needs.preflight.outputs.production_ready == 'true' &&
+      github.event.inputs.dry_run != 'true' &&
+      github.event.inputs.environment == 'production' &&
+      startsWith(github.ref, 'refs/tags/')
     environment:
       name: production
-      url: https://fraudguard-api.company.com
+      url: https://fraudguard-api.example.com
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract version from tag
-        id: version
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${{ github.event.inputs.model_version || 'latest' }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Deploy green instance
+      - name: Deploy to production via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PROD_HOST }}
@@ -105,92 +187,38 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             cd /opt/fraudguard-ml
-
-            # Start green deployment (new version on alternate port)
-            export MODEL_VERSION=${{ steps.version.outputs.version }}
-            export DEPLOY_COLOR=green
-            docker-compose -f docker-compose.prod.yml \
-              -p fraudguard-green \
-              up -d api
-
-            # Wait for green to be healthy
-            for i in $(seq 1 12); do
-              if curl -f http://localhost:8001/ready; then
-                echo "Green instance healthy after ${i}0s"
-                break
-              fi
-              sleep 10
-              if [ $i -eq 12 ]; then
-                echo "Green instance failed health check"
-                docker-compose -f docker-compose.prod.yml -p fraudguard-green down
-                exit 1
-              fi
-            done
-
-            # Switch nginx upstream to green (blue/green swap)
-            sed -i 's/server 127.0.0.1:8000/server 127.0.0.1:8001/g' /etc/nginx/conf.d/fraudguard.conf
-            nginx -s reload
-
-            # Drain and stop blue
-            sleep 30
-            docker-compose -f docker-compose.prod.yml -p fraudguard-blue down || true
-            
-            echo "Blue/green deploy complete. Running on green (port 8001)"
+            docker-compose -f docker-compose.prod.yml pull api
+            docker-compose -f docker-compose.prod.yml up -d --no-deps api
+            sleep 20
+            curl -f http://localhost:8000/ready || exit 1
 
       - name: Production smoke test
         run: |
-          pip install httpx
+          pip install httpx -q
           python scripts/smoke_test.py \
-            --base-url https://fraudguard-api.company.com \
+            --base-url ${{ secrets.PROD_URL }} \
             --api-key ${{ secrets.PROD_API_KEY }} \
             --strict
 
-      - name: Tag production release in MLflow
-        run: |
-          python -c "
-          import mlflow
-          mlflow.set_tracking_uri('${{ secrets.MLFLOW_TRACKING_URI }}')
-          client = mlflow.tracking.MlflowClient()
-          versions = client.search_model_versions(\"name='fraudguard-ensemble'\")
-          for v in versions:
-              if v.current_stage == 'Production':
-                  client.set_model_version_tag(
-                      name='fraudguard-ensemble',
-                      version=v.version,
-                      key='deployed_sha',
-                      value='${{ github.sha }}'
-                  )
-          "
-        env:
-          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-
-      - name: Notify Slack on production deploy
-        if: always()
-        uses: slackapi/slack-github-action@v1
-        with:
-          payload: |
-            {
-              "text": "${{ job.status == 'success' && '✅' || '🔴' }} FraudGuard ML *production* deploy\nVersion: ${{ steps.version.outputs.version }}\nCommit: ${{ github.sha }}\nStatus: ${{ job.status }}"
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-
-  # ── Rollback Job (Manual trigger) ────────────────────────────────────────────
-  rollback:
-    name: Emergency Rollback
+  # ── Dry run summary ───────────────────────────────────────────────────────────
+  dry-run-summary:
+    name: Dry Run Summary
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && failure()
-    environment: production
-
+    needs: [preflight, build]
+    if: github.event.inputs.dry_run == 'true'
     steps:
-      - name: Rollback to previous blue
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            # Swap nginx back to blue
-            sed -i 's/server 127.0.0.1:8001/server 127.0.0.1:8000/g' /etc/nginx/conf.d/fraudguard.conf
-            nginx -s reload
-            echo "Rolled back to blue instance"
+      - name: Print dry run results
+        run: |
+          echo "## Dry Run Complete ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This was a dry run. No servers were touched." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### To do a real deploy:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Add deployment secrets in repo Settings → Secrets" >> $GITHUB_STEP_SUMMARY
+          echo "2. Push a version tag: \`git tag v1.0.0 && git push origin v1.0.0\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Required secrets for staging:" >> $GITHUB_STEP_SUMMARY
+          echo "- STAGING_HOST, STAGING_USER, STAGING_SSH_KEY, STAGING_URL, STAGING_API_KEY" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Required secrets for production:" >> $GITHUB_STEP_SUMMARY
+          echo "- PROD_HOST, PROD_USER, PROD_SSH_KEY, PROD_URL, PROD_API_KEY" >> $GITHUB_STEP_SUMMARY
