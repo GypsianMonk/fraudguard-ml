@@ -471,5 +471,4 @@ Push → Lint (ruff) → Type check (mypy) → Unit tests → Build Docker image
 ---
 
 ## License
-
-MIT © Your Organization
+ Gypsianmonk
