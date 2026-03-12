@@ -144,7 +144,7 @@ class FraudModelTrainer:
 
             # --- Step 4: Train model ---
             logger.info("Training ensemble model")
-            ensemble = FraudEnsemble(skip_tabtransformer=skip_tabtransformer if hasattr(FraudEnsemble, 'skip_tabtransformer') else None)
+            ensemble = FraudEnsemble()
             train_metrics = ensemble.train(
                 X_train_feat, y_train,
                 X_val=X_val_feat, y_val=y_val,

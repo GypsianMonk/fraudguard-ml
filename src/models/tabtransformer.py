@@ -246,7 +246,7 @@ class TabTransformerModel(BaseModel):
         """Return fraud probabilities."""
         if not self._is_fitted or self._net is None:
             msg = "TabTransformer not fitted"
-raise ModelNotFittedError(msg)
+            raise ModelNotFittedError(msg)
 
         self._net.eval()
         x_cat, x_num = self._prepare_tensors(X)

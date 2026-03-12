@@ -1,11 +1,9 @@
 name: CD Pipeline
 
-# Only run CD on version tags (v1.0.0) or manual trigger.
-# NOT on every push to main — that's what CI is for.
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*.*"          # Deploy ONLY on version tags: v1.0.0, v1.2.3 …
   workflow_dispatch:
     inputs:
       environment:
@@ -15,210 +13,269 @@ on:
         type: choice
         options: [staging, production]
       model_version:
-        description: "Model version to deploy (leave empty for latest)"
+        description: "Model version (leave empty for latest)"
         required: false
         type: string
-      dry_run:
-        description: "Dry run (validate config without deploying)"
-        required: false
-        default: "true"
-        type: choice
-        options: ["true", "false"]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/fraudguard-api
 
 jobs:
-  # ── Validate secrets are configured ──────────────────────────────────────────
+  # ── Preflight: resolve secrets + target env before doing anything ─────────
   preflight:
     name: Preflight Check
     runs-on: ubuntu-latest
     outputs:
-      staging_ready: ${{ steps.check.outputs.staging_ready }}
+      staging_ready:    ${{ steps.check.outputs.staging_ready }}
       production_ready: ${{ steps.check.outputs.production_ready }}
+      target_env:       ${{ steps.check.outputs.target_env }}
+      model_version:    ${{ steps.check.outputs.model_version }}
     steps:
-      - name: Check deployment secrets
+      - name: Resolve target and secrets
         id: check
         run: |
-          staging_ready=false
-          production_ready=false
+          # Tag push → production; manual dispatch → use input
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TARGET="production"
+          else
+            TARGET="${{ github.event.inputs.environment }}"
+          fi
+          echo "target_env=$TARGET" >> $GITHUB_OUTPUT
 
+          # Model version
+          VERSION="${{ github.event.inputs.model_version }}"
+          if [ -z "$VERSION" ]; then
+            if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+              VERSION="${GITHUB_REF#refs/tags/}"
+            else
+              VERSION="latest"
+            fi
+          fi
+          echo "model_version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Staging secrets present?
           if [ -n "${{ secrets.STAGING_HOST }}" ] && \
              [ -n "${{ secrets.STAGING_USER }}" ] && \
              [ -n "${{ secrets.STAGING_SSH_KEY }}" ]; then
-            staging_ready=true
+            echo "staging_ready=true"  >> $GITHUB_OUTPUT
+          else
+            echo "staging_ready=false" >> $GITHUB_OUTPUT
           fi
 
+          # Production secrets present?
           if [ -n "${{ secrets.PROD_HOST }}" ] && \
              [ -n "${{ secrets.PROD_USER }}" ] && \
              [ -n "${{ secrets.PROD_SSH_KEY }}" ]; then
-            production_ready=true
+            echo "production_ready=true"  >> $GITHUB_OUTPUT
+          else
+            echo "production_ready=false" >> $GITHUB_OUTPUT
           fi
 
-          echo "staging_ready=$staging_ready" >> $GITHUB_OUTPUT
-          echo "production_ready=$production_ready" >> $GITHUB_OUTPUT
-
-          echo "## Preflight Results" >> $GITHUB_STEP_SUMMARY
-          echo "- Staging secrets configured: $staging_ready" >> $GITHUB_STEP_SUMMARY
-          echo "- Production secrets configured: $production_ready" >> $GITHUB_STEP_SUMMARY
-
-          if [ "$staging_ready" = "false" ] && [ "$production_ready" = "false" ]; then
-            echo ""  >> $GITHUB_STEP_SUMMARY
-            echo "⚠️ No deployment secrets are configured." >> $GITHUB_STEP_SUMMARY
-            echo "Add secrets at: https://github.com/${{ github.repository }}/settings/secrets/actions" >> $GITHUB_STEP_SUMMARY
+      - name: Write summary
+        run: |
+          echo "## 🚀 CD Preflight" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Actor**      | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Ref**        | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Target**     | ${{ steps.check.outputs.target_env }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Version**    | ${{ steps.check.outputs.model_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Staging**    | ${{ steps.check.outputs.staging_ready    == 'true' && '✅ Ready' || '⚠️ No secrets' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Production** | ${{ steps.check.outputs.production_ready == 'true' && '✅ Ready' || '⚠️ No secrets' }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.staging_ready }}" = "false" ] && \
+             [ "${{ steps.check.outputs.production_ready }}" = "false" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### ⚠️ Add secrets to enable real deployments" >> $GITHUB_STEP_SUMMARY
+            echo "Go to **Settings → Secrets → Actions** and add:" >> $GITHUB_STEP_SUMMARY
+            echo "- Staging: \`STAGING_HOST\`, \`STAGING_USER\`, \`STAGING_SSH_KEY\`, \`STAGING_API_KEY\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Production: \`PROD_HOST\`, \`PROD_USER\`, \`PROD_SSH_KEY\`, \`PROD_API_KEY\`" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # ── Build & push Docker image ─────────────────────────────────────────────────
-  build:
-    name: Build Docker Image
+  # ── No-op: green run when no servers configured ───────────────────────────
+  no-servers-configured:
+    name: No Servers Configured
     runs-on: ubuntu-latest
     needs: preflight
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-
+    if: |
+      needs.preflight.outputs.staging_ready    == 'false' &&
+      needs.preflight.outputs.production_ready == 'false'
     steps:
-      - uses: actions/checkout@v4
+      - run: |
+          echo "No deployment secrets configured — skipping deploy."
+          echo "Pipeline is valid. Add STAGING_HOST / PROD_HOST to enable real deploys."
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=tag
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docker/Dockerfile.api
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
-
-      - name: Image build summary
-        run: |
-          echo "## Docker Image Built ✅" >> $GITHUB_STEP_SUMMARY
-          echo "Tags: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-
-  # ── Deploy to Staging ─────────────────────────────────────────────────────────
+  # ── Deploy to Staging ─────────────────────────────────────────────────────
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [preflight, build]
+    needs: preflight
     if: |
       needs.preflight.outputs.staging_ready == 'true' &&
-      (github.event.inputs.dry_run != 'true') &&
-      (github.event.inputs.environment == 'staging' || startsWith(github.ref, 'refs/tags/'))
+      (needs.preflight.outputs.target_env == 'staging' ||
+       needs.preflight.outputs.target_env == 'production')
     environment:
       name: staging
-      url: https://fraudguard-staging.example.com
-
+    concurrency:
+      group: staging-deploy
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to staging via SSH
+      - name: Deploy to staging
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.STAGING_HOST }}
+          host:     ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
+          key:      ${{ secrets.STAGING_SSH_KEY }}
+          port:     ${{ secrets.STAGING_PORT || 22 }}
           script: |
+            set -e
             cd /opt/fraudguard-ml
-            docker-compose -f docker-compose.prod.yml pull api
-            docker-compose -f docker-compose.prod.yml up -d --no-deps api
-            sleep 15
-            curl -f http://localhost:8000/ready || exit 1
-            echo "Staging deploy successful"
+            git pull origin main
+            export MODEL_VERSION=${{ needs.preflight.outputs.model_version }}
+            docker compose -f docker-compose.prod.yml pull api
+            docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate api
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:8000/ready; then
+                echo "Staging ready (attempt $i)"; break
+              fi
+              sleep 10
+              if [ "$i" = "12" ]; then
+                docker compose -f docker-compose.prod.yml logs api --tail=50
+                exit 1
+              fi
+            done
 
-      - name: Run smoke tests
+      - name: Smoke-test staging
         run: |
           pip install httpx -q
           python scripts/smoke_test.py \
-            --base-url ${{ secrets.STAGING_URL }} \
+            --base-url https://${{ secrets.STAGING_HOST }} \
             --api-key ${{ secrets.STAGING_API_KEY }}
 
-      - name: Staging deploy summary
+      - name: Summary
         if: always()
         run: |
-          echo "## Staging Deploy: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          ICON=$([[ "${{ job.status }}" == "success" ]] && echo "✅" || echo "❌")
+          echo "## $ICON Staging: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "Version: \`${{ needs.preflight.outputs.model_version }}\`" >> $GITHUB_STEP_SUMMARY
 
-  # ── Deploy to Production ──────────────────────────────────────────────────────
+  # ── Deploy to Production (Blue/Green) ────────────────────────────────────
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: [preflight, deploy-staging]
     if: |
+      always() &&
       needs.preflight.outputs.production_ready == 'true' &&
-      github.event.inputs.dry_run != 'true' &&
-      github.event.inputs.environment == 'production' &&
-      startsWith(github.ref, 'refs/tags/')
+      needs.preflight.outputs.target_env == 'production' &&
+      (needs.deploy-staging.result == 'success' || needs.deploy-staging.result == 'skipped')
     environment:
       name: production
-      url: https://fraudguard-api.example.com
-
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to production via SSH
+      - name: Blue/Green deploy
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
+          host:            ${{ secrets.PROD_HOST }}
+          username:        ${{ secrets.PROD_USER }}
+          key:             ${{ secrets.PROD_SSH_KEY }}
+          port:            ${{ secrets.PROD_PORT || 22 }}
+          command_timeout: 5m
           script: |
+            set -e
             cd /opt/fraudguard-ml
-            docker-compose -f docker-compose.prod.yml pull api
-            docker-compose -f docker-compose.prod.yml up -d --no-deps api
-            sleep 20
-            curl -f http://localhost:8000/ready || exit 1
+            export MODEL_VERSION=${{ needs.preflight.outputs.model_version }}
 
-      - name: Production smoke test
+            CURRENT=$(cat .active_color 2>/dev/null || echo "blue")
+            if [ "$CURRENT" = "blue" ]; then
+              NEW="green"; NEW_PORT=8001; OLD_PORT=8000
+            else
+              NEW="blue";  NEW_PORT=8000; OLD_PORT=8001
+            fi
+            echo "Deploying $NEW (port $NEW_PORT), replacing $CURRENT (port $OLD_PORT)"
+
+            APP_PORT=$NEW_PORT docker compose -f docker-compose.prod.yml -p fraudguard-$NEW up -d api
+
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:$NEW_PORT/ready; then
+                echo "$NEW instance healthy"; break
+              fi
+              sleep 10
+              if [ "$i" = "12" ]; then
+                docker compose -f docker-compose.prod.yml -p fraudguard-$NEW down
+                exit 1
+              fi
+            done
+
+            sed -i "s/server 127.0.0.1:$OLD_PORT/server 127.0.0.1:$NEW_PORT/g" \
+              /etc/nginx/conf.d/fraudguard.conf
+            nginx -t && nginx -s reload
+            echo "$NEW" > .active_color
+
+            sleep 15
+            docker compose -f docker-compose.prod.yml -p fraudguard-$CURRENT down || true
+            echo "Blue/green complete — running $NEW"
+
+      - name: Smoke-test production
         run: |
           pip install httpx -q
           python scripts/smoke_test.py \
-            --base-url ${{ secrets.PROD_URL }} \
+            --base-url https://${{ secrets.PROD_HOST }} \
             --api-key ${{ secrets.PROD_API_KEY }} \
             --strict
 
-  # ── Dry run summary ───────────────────────────────────────────────────────────
-  dry-run-summary:
-    name: Dry Run Summary
-    runs-on: ubuntu-latest
-    needs: [preflight, build]
-    if: github.event.inputs.dry_run == 'true'
-    steps:
-      - name: Print dry run results
+      - name: Summary
+        if: always()
         run: |
-          echo "## Dry Run Complete ✅" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "This was a dry run. No servers were touched." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### To do a real deploy:" >> $GITHUB_STEP_SUMMARY
-          echo "1. Add deployment secrets in repo Settings → Secrets" >> $GITHUB_STEP_SUMMARY
-          echo "2. Push a version tag: \`git tag v1.0.0 && git push origin v1.0.0\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Required secrets for staging:" >> $GITHUB_STEP_SUMMARY
-          echo "- STAGING_HOST, STAGING_USER, STAGING_SSH_KEY, STAGING_URL, STAGING_API_KEY" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Required secrets for production:" >> $GITHUB_STEP_SUMMARY
-          echo "- PROD_HOST, PROD_USER, PROD_SSH_KEY, PROD_URL, PROD_API_KEY" >> $GITHUB_STEP_SUMMARY
+          ICON=$([[ "${{ job.status }}" == "success" ]] && echo "✅" || echo "❌")
+          echo "## $ICON Production: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "Version: \`${{ needs.preflight.outputs.model_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Actor: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+
+  # ── Auto-Rollback on production failure ──────────────────────────────────
+  rollback:
+    name: Emergency Rollback
+    runs-on: ubuntu-latest
+    needs: [preflight, deploy-production]
+    if: |
+      always() &&
+      needs.preflight.outputs.production_ready == 'true' &&
+      needs.deploy-production.result == 'failure'
+    environment:
+      name: production
+    steps:
+      - name: Rollback to previous color
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key:      ${{ secrets.PROD_SSH_KEY }}
+          port:     ${{ secrets.PROD_PORT || 22 }}
+          script: |
+            set -e
+            ACTIVE=$(cat /opt/fraudguard-ml/.active_color 2>/dev/null || echo "green")
+            if [ "$ACTIVE" = "green" ]; then
+              PREV="blue";  PREV_PORT=8000; ACTIVE_PORT=8001
+            else
+              PREV="green"; PREV_PORT=8001; ACTIVE_PORT=8000
+            fi
+            cd /opt/fraudguard-ml
+            APP_PORT=$PREV_PORT docker compose -f docker-compose.prod.yml -p fraudguard-$PREV up -d api || true
+            sleep 10
+            sed -i "s/server 127.0.0.1:$ACTIVE_PORT/server 127.0.0.1:$PREV_PORT/g" \
+              /etc/nginx/conf.d/fraudguard.conf
+            nginx -t && nginx -s reload
+            echo "$PREV" > .active_color
+            echo "Rolled back to $PREV"
+
+      - name: Rollback summary
+        if: always()
+        run: |
+          echo "## 🔄 Rollback: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "Production deploy failed — automatic rollback triggered." >> $GITHUB_STEP_SUMMARY

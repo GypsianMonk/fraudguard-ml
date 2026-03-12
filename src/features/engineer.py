@@ -85,6 +85,20 @@ class FraudFeatureEngineer(BaseFeatureEngineer):
     def is_fitted(self) -> bool:
         return self._artifacts.is_fitted
 
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Fit on training data and immediately transform it.
+        Equivalent to fit(df).transform(df) but more efficient
+        since features are only computed once.
+
+        Args:
+            df: Raw training DataFrame (must include 'is_fraud' column)
+
+        Returns:
+            Feature matrix DataFrame ready for model training
+        """
+        return self.fit(df).transform(df)
+
     def fit(self, df: pd.DataFrame) -> FraudFeatureEngineer:
         """
         Fit all transformation artifacts on training data.

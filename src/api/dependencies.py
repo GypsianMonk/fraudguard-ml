@@ -73,8 +73,7 @@ class AppContainer:
             try:
                 self._model = FraudEnsemble()
                 self._model.load(str(local_path / "model"))
-                import joblib as jl
-                self._feature_engineer = jl.load(local_path / "feature_engineer.joblib")
+                self._feature_engineer = joblib.load(local_path / "feature_engineer.joblib")
                 self._model_version = "local-latest"
                 self._model_loaded = True
                 logger.info("Loaded local model from %s", local_path)

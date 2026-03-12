@@ -270,7 +270,7 @@ class SmokeTestSuite:
 
             if not latencies:
                 msg = "No successful predictions for latency test"
-raise AssertionError(msg)
+                raise AssertionError(msg)
 
             import statistics
             p99 = sorted(latencies)[int(len(latencies) * 0.99)] if len(latencies) > 1 else latencies[0]

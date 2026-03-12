@@ -1,8 +1,8 @@
 """
 src/core/interfaces.py
 -----------------------
-Abstract base classes (interfaces) for all major components.
-Implements Dependency Inversion Principle — high-level modules depend on abstractions.
+Abstract base classes for all major components.
+Implements Dependency Inversion Principle.
 """
 from __future__ import annotations
 
@@ -22,12 +22,7 @@ class BaseModel(ABC):
     def is_fitted(self) -> bool: ...
 
     @abstractmethod
-    def train(
-        self,
-        features: pd.DataFrame,
-        labels: pd.Series,
-        **kwargs: Any,
-    ) -> dict[str, Any]: ...
+    def train(self, features: pd.DataFrame, labels: pd.Series, **kwargs: Any) -> dict[str, Any]: ...
 
     @abstractmethod
     def predict_proba(self, features: pd.DataFrame) -> np.ndarray: ...
@@ -41,6 +36,9 @@ class BaseModel(ABC):
 
 class BaseFeatureEngineer(ABC):
     """Abstract interface for feature engineering pipelines."""
+
+    @abstractmethod
+    def fit(self, df: pd.DataFrame) -> BaseFeatureEngineer: ...
 
     @abstractmethod
     def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame: ...
@@ -59,9 +57,7 @@ class BaseFeatureStore(ABC):
     async def get_user_features(self, user_id: str) -> dict[str, Any]: ...
 
     @abstractmethod
-    async def update_user_features(
-        self, user_id: str, features: dict[str, Any]
-    ) -> None: ...
+    async def update_user_features(self, user_id: str, features: dict[str, Any]) -> None: ...
 
     @abstractmethod
     async def ping(self) -> bool: ...
@@ -84,9 +80,20 @@ class BaseMetricsCollector(ABC):
     """Abstract interface for metrics collection."""
 
     @abstractmethod
-    def record_prediction(
-        self, fraud_prob: float, risk_tier: str, latency_ms: int
-    ) -> None: ...
+    def record_prediction(self, fraud_prob: float, risk_tier: str, latency_ms: int) -> None: ...
 
     @abstractmethod
     def record_error(self, error_type: str) -> None: ...
+
+
+class BaseDriftDetector(ABC):
+    """Abstract interface for drift detection."""
+
+    @abstractmethod
+    def fit_reference(self, reference_data: pd.DataFrame) -> None: ...
+
+    @abstractmethod
+    def detect_drift(self, current_data: pd.DataFrame) -> Any: ...
+
+    @abstractmethod
+    def is_drifted(self, current_data: pd.DataFrame) -> bool: ...

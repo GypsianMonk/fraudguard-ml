@@ -4,39 +4,31 @@ src/training/tuner.py
 Optuna-based hyperparameter optimization with MLflow integration.
 Uses TPE sampler + Hyperband pruner for efficient exploration.
 """
-
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import mlflow
 import numpy as np
 import optuna
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pandas as pd
-
 from sklearn.metrics import average_precision_score
 from sklearn.model_selection import StratifiedKFold
 
 from src.models.xgboost_model import XGBoostFraudModel
 
+if TYPE_CHECKING:
+    import pandas as pd
+
 logger = logging.getLogger(__name__)
 
-# Silence Optuna's verbose output
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
 class FraudHyperparamTuner:
     """
-    Hyperparameter optimization using Optuna with MLflow experiment tracking.
-
-    Optimizes XGBoost hyperparameters using cross-validated AUC-PR
-    (most appropriate metric for imbalanced fraud detection).
+    Hyperparameter optimization using Optuna with MLflow tracking.
+    Optimizes XGBoost hyperparameters via cross-validated AUC-PR.
 
     Usage:
         tuner = FraudHyperparamTuner(n_trials=100, cv_folds=5)
@@ -68,13 +60,8 @@ class FraudHyperparamTuner:
         """
         Run hyperparameter optimization.
 
-        Args:
-            X: Training feature matrix
-            y: Binary fraud labels
-            mlflow_run_id: If provided, log results to existing MLflow run
-
         Returns:
-            Best hyperparameter configuration found
+            Best hyperparameter configuration found.
         """
         logger.info(
             "Starting Optuna HPO: %d trials, %d-fold CV, metric=%s",
@@ -104,7 +91,6 @@ class FraudHyperparamTuner:
         logger.info("HPO complete | Best %s: %.4f", self._metric, best_value)
         logger.info("Best params: %s", self._best_params)
 
-        # Log to MLflow
         if mlflow_run_id:
             with mlflow.start_run(run_id=mlflow_run_id):
                 mlflow.log_params({f"tuned_{k}": v for k, v in self._best_params.items()})
@@ -113,11 +99,7 @@ class FraudHyperparamTuner:
 
         return self._best_params
 
-    def _build_objective(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-    ) -> Any:
+    def _build_objective(self, X: pd.DataFrame, y: pd.Series) -> Any:
         """Build Optuna objective function with cross-validation."""
         cv = StratifiedKFold(n_splits=self._cv_folds, shuffle=True, random_state=42)
 
@@ -129,7 +111,6 @@ class FraudHyperparamTuner:
                 X_fold, y_fold = X.iloc[train_idx], y.iloc[train_idx]
                 X_val, y_val = X.iloc[val_idx], y.iloc[val_idx]
 
-                # Scale pos weight based on fold imbalance
                 neg = (y_fold == 0).sum()
                 pos = (y_fold == 1).sum()
                 params["scale_pos_weight"] = neg / max(pos, 1)
@@ -141,7 +122,6 @@ class FraudHyperparamTuner:
                 score = average_precision_score(y_val, y_proba)
                 cv_scores.append(score)
 
-                # Report intermediate value for pruning
                 trial.report(np.mean(cv_scores), step=fold)
                 if trial.should_prune():
                     raise optuna.TrialPruned()
@@ -152,7 +132,6 @@ class FraudHyperparamTuner:
 
     @staticmethod
     def _suggest_xgboost_params(trial: optuna.Trial) -> dict[str, Any]:
-        """Define the hyperparameter search space for XGBoost."""
         return {
             "n_estimators": trial.suggest_int("n_estimators", 300, 2000, step=100),
             "max_depth": trial.suggest_int("max_depth", 4, 10),
@@ -167,7 +146,7 @@ class FraudHyperparamTuner:
             "eval_metric": ["aucpr", "auc"],
             "early_stopping_rounds": 50,
             "random_state": 42,
-            "n_jobs": 1,  # Parallelism handled by n_jobs in study
+            "n_jobs": 1,
         }
 
     @property
@@ -179,11 +158,9 @@ class FraudHyperparamTuner:
         return self._study
 
     def get_importance_plot_data(self) -> dict[str, Any] | None:
-        """Return hyperparameter importance data for visualization."""
         if self._study is None:
             return None
         try:
-            importance = optuna.importance.get_param_importances(self._study)
-            return dict(importance)
+            return dict(optuna.importance.get_param_importances(self._study))
         except Exception:
             return None
