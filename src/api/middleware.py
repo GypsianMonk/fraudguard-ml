@@ -3,6 +3,7 @@ src/api/middleware.py
 ---------------------
 FastAPI middleware for logging, rate limiting, and request tracing.
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         import uuid
+
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
         cv.bind_contextvars(
             request_id=request_id,
@@ -34,9 +36,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:
-            logger.exception(
-                "Unhandled exception in %s %s", request.method, request.url.path
-            )
+            logger.exception("Unhandled exception in %s %s", request.method, request.url.path)
             raise
         finally:
             elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -72,12 +72,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         now = time.monotonic()
         window = 60.0
 
-        self._counts[client_ip] = [
-            t for t in self._counts[client_ip] if now - t < window
-        ]
+        self._counts[client_ip] = [t for t in self._counts[client_ip] if now - t < window]
 
         if len(self._counts[client_ip]) >= self._rpm:
             from fastapi.responses import JSONResponse
+
             return JSONResponse(
                 status_code=429,
                 content={"error": "Rate limit exceeded", "retry_after": 60},

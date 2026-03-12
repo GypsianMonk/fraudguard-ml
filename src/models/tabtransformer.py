@@ -84,16 +84,20 @@ class TabTransformerNet(nn.Module):
         mlp_hidden_dims = mlp_hidden_dims or [256, 128, 64]
 
         # Categorical embeddings
-        self.embeddings = nn.ModuleList([
-            nn.Embedding(vocab_size + 1, embedding_dim, padding_idx=0)
-            for vocab_size in categorical_vocab_sizes
-        ])
+        self.embeddings = nn.ModuleList(
+            [
+                nn.Embedding(vocab_size + 1, embedding_dim, padding_idx=0)
+                for vocab_size in categorical_vocab_sizes
+            ]
+        )
 
         # Transformer blocks
-        self.transformer_blocks = nn.Sequential(*[
-            MultiHeadAttentionBlock(embedding_dim, num_heads, attention_dropout)
-            for _ in range(num_layers)
-        ])
+        self.transformer_blocks = nn.Sequential(
+            *[
+                MultiHeadAttentionBlock(embedding_dim, num_heads, attention_dropout)
+                for _ in range(num_layers)
+            ]
+        )
 
         # Numerical feature normalization
         self.num_bn = nn.BatchNorm1d(n_numerical) if n_numerical > 0 else None
@@ -105,12 +109,14 @@ class TabTransformerNet(nn.Module):
         layers: list[nn.Module] = []
         in_dim = mlp_input_dim
         for h_dim in mlp_hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h_dim),
-                nn.GELU(),
-                nn.BatchNorm1d(h_dim),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h_dim),
+                    nn.GELU(),
+                    nn.BatchNorm1d(h_dim),
+                    nn.Dropout(dropout),
+                ]
+            )
             in_dim = h_dim
         layers.append(nn.Linear(in_dim, 1))
 
@@ -118,8 +124,8 @@ class TabTransformerNet(nn.Module):
 
     def forward(
         self,
-        x_cat: torch.Tensor,   # (batch, n_categorical)
-        x_num: torch.Tensor,   # (batch, n_numerical)
+        x_cat: torch.Tensor,  # (batch, n_categorical)
+        x_num: torch.Tensor,  # (batch, n_numerical)
     ) -> torch.Tensor:
         # Embed categoricals: (batch, n_cat, embed_dim)
         cat_embeds = torch.stack([emb(x_cat[:, i]) for i, emb in enumerate(self.embeddings)], dim=1)
@@ -206,7 +212,9 @@ class TabTransformerModel(BaseModel):
         )
 
         train_loader = self._make_dataloader(X, y, shuffle=True)
-        val_loader = self._make_dataloader(X_val, y_val, shuffle=False) if X_val is not None else None
+        val_loader = (
+            self._make_dataloader(X_val, y_val, shuffle=False) if X_val is not None else None
+        )
 
         best_val_loss = float("inf")
         patience = self._hyperparams["patience"]
@@ -232,7 +240,12 @@ class TabTransformerModel(BaseModel):
                     break
 
                 if (epoch + 1) % 10 == 0:
-                    logger.info("Epoch %d | train_loss=%.4f | val_loss=%.4f", epoch + 1, train_loss, val_loss)
+                    logger.info(
+                        "Epoch %d | train_loss=%.4f | val_loss=%.4f",
+                        epoch + 1,
+                        train_loss,
+                        val_loss,
+                    )
 
         # Restore best weights
         if best_state is not None:
@@ -260,10 +273,11 @@ class TabTransformerModel(BaseModel):
     def get_feature_importance(self) -> dict[str, float]:
         """Return uniform importance (attention-based importance requires SHAP)."""
         if not self._is_fitted:
-            raise ModelNotFittedError("Model not fitted")
+            msg = "Model not fitted"
+            raise ModelNotFittedError(msg)
         # Uniform as placeholder; use SHAP for production explainability
         n = len(self._feature_names)
-        return {name: 1.0 / n for name in self._feature_names}
+        return dict.fromkeys(self._feature_names, 1.0 / n)
 
     def save(self, path: str) -> None:
         """Save model checkpoint and configuration."""
@@ -300,9 +314,15 @@ class TabTransformerModel(BaseModel):
             n_categorical=len(self._cat_columns),
             categorical_vocab_sizes=self._cat_vocab_sizes,
             n_numerical=len(self._num_columns),
-            **{k: self._hyperparams[k] for k in [
-                "embedding_dim", "num_heads", "dropout", "attention_dropout",
-            ]},
+            **{
+                k: self._hyperparams[k]
+                for k in [
+                    "embedding_dim",
+                    "num_heads",
+                    "dropout",
+                    "attention_dropout",
+                ]
+            },
             num_layers=self._hyperparams["num_transformer_layers"],
             mlp_hidden_dims=self._hyperparams["mlp_hidden_dims"],
         ).to(DEVICE)
@@ -316,13 +336,24 @@ class TabTransformerModel(BaseModel):
 
     def _identify_column_types(self, X: pd.DataFrame) -> None:
         """Identify categorical vs numerical columns."""
-        self._cat_columns = [c for c in X.columns if X[c].dtype in ["int32", "int64", "object", "category"]
-                            and X[c].nunique() < 50]
+        self._cat_columns = [
+            c
+            for c in X.columns
+            if X[c].dtype in ["int32", "int64", "object", "category"] and X[c].nunique() < 50
+        ]
         self._num_columns = [c for c in X.columns if c not in self._cat_columns]
 
     def _prepare_tensors(self, X: pd.DataFrame) -> tuple[torch.Tensor, torch.Tensor]:
-        cat_data = X[self._cat_columns].fillna(0).astype(int).values if self._cat_columns else np.zeros((len(X), 0), dtype=int)
-        num_data = X[self._num_columns].fillna(0).astype(float).values if self._num_columns else np.zeros((len(X), 0))
+        cat_data = (
+            X[self._cat_columns].fillna(0).astype(int).values
+            if self._cat_columns
+            else np.zeros((len(X), 0), dtype=int)
+        )
+        num_data = (
+            X[self._num_columns].fillna(0).astype(float).values
+            if self._num_columns
+            else np.zeros((len(X), 0))
+        )
 
         x_cat = torch.tensor(cat_data, dtype=torch.long, device=DEVICE)
         x_num = torch.tensor(num_data, dtype=torch.float32, device=DEVICE)
@@ -355,7 +386,9 @@ class TabTransformerModel(BaseModel):
             logits = net(x_cat, x_num)
             loss = criterion(logits, y_batch)
             loss.backward()
-            nn.utils.clip_grad_norm_(net.parameters(), self._hyperparams.get("gradient_clip_norm", 1.0))
+            nn.utils.clip_grad_norm_(
+                net.parameters(), self._hyperparams.get("gradient_clip_norm", 1.0)
+            )
             optimizer.step()
             total_loss += loss.item()
         return total_loss / len(loader)

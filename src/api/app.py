@@ -3,6 +3,7 @@ src/api/app.py
 --------------
 FastAPI application factory with all middleware, routers, and lifecycle hooks.
 """
+
 from __future__ import annotations
 
 import logging

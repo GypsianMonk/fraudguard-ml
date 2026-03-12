@@ -4,6 +4,7 @@ src/core/interfaces.py
 Abstract base classes for all major components.
 Implements Dependency Inversion Principle.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

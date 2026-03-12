@@ -104,12 +104,15 @@ def main() -> None:
     # ── Optional HPO ─────────────────────────────────────────────────────────
     if args.tune:
         logger.info("Running hyperparameter optimization (%d trials)...", args.n_trials)
-        from src.training.tuner import FraudHyperparamTuner
         import pandas as pd
-        from src.features.engineer import FraudFeatureEngineer
         from sklearn.model_selection import train_test_split
 
-        df = pd.read_parquet(args.data) if args.data.endswith(".parquet") else pd.read_csv(args.data)
+        from src.features.engineer import FraudFeatureEngineer
+        from src.training.tuner import FraudHyperparamTuner
+
+        df = (
+            pd.read_parquet(args.data) if args.data.endswith(".parquet") else pd.read_csv(args.data)
+        )
         df_sample = df.sample(min(50_000, len(df)), random_state=42)
 
         engineer = FraudFeatureEngineer(mode="training")
@@ -118,7 +121,9 @@ def main() -> None:
             X_feat.drop(columns=[col], errors="ignore", inplace=True)
 
         y = df_sample["is_fraud"]
-        X_train, X_val, y_train, y_val = train_test_split(X_feat, y, test_size=0.2, stratify=y, random_state=42)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_feat, y, test_size=0.2, stratify=y, random_state=42
+        )
 
         tuner = FraudHyperparamTuner(n_trials=args.n_trials, cv_folds=3)
         best_params = tuner.tune(X_train, y_train)

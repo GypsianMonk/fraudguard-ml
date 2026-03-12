@@ -3,9 +3,10 @@ tests/unit/test_feature_engineer.py
 -------------------------------------
 Unit tests for FraudFeatureEngineer.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
@@ -16,27 +17,27 @@ from src.features.engineer import FraudFeatureEngineer
 
 def make_txn_df(n: int = 100) -> pd.DataFrame:
     rng = np.random.default_rng(42)
-    base = datetime(2024, 1, 15, 12, 0, tzinfo=timezone.utc)
-    return pd.DataFrame({
-        "transaction_id": [f"txn_{i:03d}" for i in range(n)],
-        "user_id": [f"usr_{i % 10:02d}" for i in range(n)],
-        "amount": np.round(rng.lognormal(4.2, 1.5, n), 2),
-        "currency": rng.choice(["USD", "EUR", "GBP"], n),
-        "merchant_id": [f"mrc_{i % 8:02d}" for i in range(n)],
-        "merchant_category": rng.choice(
-            ["electronics", "groceries", "restaurants", "travel"], n
-        ),
-        "payment_method": rng.choice(["credit_card", "debit_card"], n),
-        "timestamp": [
-            base.replace(hour=int(i % 24)) for i in range(n)
-        ],
-        "card_present": rng.choice([True, False], n),
-        "device_fingerprint": [f"fp_{i % 15:02d}" for i in range(n)],
-        "country": rng.choice(["US", "CA", "GB", "RU"], n, p=[0.7, 0.1, 0.1, 0.1]),
-        "latitude": rng.uniform(25, 50, n),
-        "longitude": rng.uniform(-125, -65, n),
-        "is_fraud": rng.choice([0, 1], n, p=[0.95, 0.05]),
-    })
+    base = datetime(2024, 1, 15, 12, 0, tzinfo=UTC)
+    return pd.DataFrame(
+        {
+            "transaction_id": [f"txn_{i:03d}" for i in range(n)],
+            "user_id": [f"usr_{i % 10:02d}" for i in range(n)],
+            "amount": np.round(rng.lognormal(4.2, 1.5, n), 2),
+            "currency": rng.choice(["USD", "EUR", "GBP"], n),
+            "merchant_id": [f"mrc_{i % 8:02d}" for i in range(n)],
+            "merchant_category": rng.choice(
+                ["electronics", "groceries", "restaurants", "travel"], n
+            ),
+            "payment_method": rng.choice(["credit_card", "debit_card"], n),
+            "timestamp": [base.replace(hour=int(i % 24)) for i in range(n)],
+            "card_present": rng.choice([True, False], n),
+            "device_fingerprint": [f"fp_{i % 15:02d}" for i in range(n)],
+            "country": rng.choice(["US", "CA", "GB", "RU"], n, p=[0.7, 0.1, 0.1, 0.1]),
+            "latitude": rng.uniform(25, 50, n),
+            "longitude": rng.uniform(-125, -65, n),
+            "is_fraud": rng.choice([0, 1], n, p=[0.95, 0.05]),
+        }
+    )
 
 
 @pytest.fixture
@@ -52,7 +53,6 @@ def fitted_engineer(raw_df: pd.DataFrame) -> FraudFeatureEngineer:
 
 
 class TestFraudFeatureEngineer:
-
     def test_fit_transform_returns_dataframe(self, raw_df: pd.DataFrame) -> None:
         eng = FraudFeatureEngineer(mode="training")
         result = eng.fit_transform(raw_df)
@@ -86,7 +86,8 @@ class TestFraudFeatureEngineer:
         eng = FraudFeatureEngineer(mode="training")
         result = eng.fit_transform(raw_df)
         non_numeric = [
-            c for c in result.columns
+            c
+            for c in result.columns
             if result[c].dtype not in (float, int, bool, "float64", "int64", "bool")
         ]
         assert len(non_numeric) == 0, f"Non-numeric columns: {non_numeric}"
@@ -94,9 +95,11 @@ class TestFraudFeatureEngineer:
     def test_temporal_features_present(self, raw_df: pd.DataFrame) -> None:
         eng = FraudFeatureEngineer(mode="training")
         result = eng.fit_transform(raw_df)
-        temporal = [c for c in result.columns if any(
-            k in c for k in ("hour", "day", "is_night", "is_weekend")
-        )]
+        temporal = [
+            c
+            for c in result.columns
+            if any(k in c for k in ("hour", "day", "is_night", "is_weekend"))
+        ]
         assert len(temporal) > 0
 
     def test_amount_features_present(self, raw_df: pd.DataFrame) -> None:

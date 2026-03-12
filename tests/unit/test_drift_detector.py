@@ -15,10 +15,9 @@ from src.monitoring.drift_detector import FraudDriftDetector
 
 def make_numeric_df(n: int, means: list[float], std: float = 1.0, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
-    return pd.DataFrame({
-        f"feature_{i}": rng.normal(loc=mean, scale=std, size=n)
-        for i, mean in enumerate(means)
-    })
+    return pd.DataFrame(
+        {f"feature_{i}": rng.normal(loc=mean, scale=std, size=n) for i, mean in enumerate(means)}
+    )
 
 
 @pytest.fixture
@@ -38,7 +37,6 @@ def fitted_detector(detector, reference_df):
 
 
 class TestFraudDriftDetector:
-
     def test_fit_reference_sets_stats(self, detector, reference_df):
         detector.fit_reference(reference_df)
         assert len(detector._reference_stats) == 4

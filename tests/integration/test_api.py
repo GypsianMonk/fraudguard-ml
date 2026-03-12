@@ -10,7 +10,7 @@ Mark: @pytest.mark.integration
 
 from __future__ import annotations
 
-MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -39,16 +39,21 @@ def mock_container():
     def mock_transform(df):
         # Return a simple feature DataFrame
         n = len(df)
-        return pd.DataFrame({
-            "amount_zscore": [0.5] * n,
-            "txn_count_1h": [2.0] * n,
-            "is_night": [0] * n,
-            "card_not_present": [1] * n,
-        })
+        return pd.DataFrame(
+            {
+                "amount_zscore": [0.5] * n,
+                "txn_count_1h": [2.0] * n,
+                "is_night": [0] * n,
+                "card_not_present": [1] * n,
+            }
+        )
 
     container.feature_engineer.transform.side_effect = mock_transform
     container.feature_engineer.get_feature_names.return_value = [
-        "amount_zscore", "txn_count_1h", "is_night", "card_not_present"
+        "amount_zscore",
+        "txn_count_1h",
+        "is_night",
+        "card_not_present",
     ]
 
     # Mock metrics
@@ -66,9 +71,11 @@ def test_client(mock_container):
     # Override container in app state
     app.state.container = mock_container
 
-    with patch("src.api.dependencies.get_container", return_value=mock_container):
-        with TestClient(app, raise_server_exceptions=False) as client:
-            yield client
+    with (
+        patch("src.api.dependencies.get_container", return_value=mock_container),
+        TestClient(app, raise_server_exceptions=False) as client,
+    ):
+        yield client
 
 
 VALID_TRANSACTION = {
@@ -139,7 +146,9 @@ class TestPredictEndpoint:
         assert response.status_code == 401
 
     @pytest.mark.integration
-    def test_predict_valid_request_returns_200(self, test_client: TestClient, mock_container) -> None:
+    def test_predict_valid_request_returns_200(
+        self, test_client: TestClient, mock_container
+    ) -> None:
         """Valid request with correct API key should return 200."""
         with patch("src.api.routes.predict.get_container", return_value=mock_container):
             response = test_client.post(
@@ -209,16 +218,19 @@ class TestSchemaValidation:
 
     def test_country_code_uppercased(self) -> None:
         from src.core.schemas import Location
+
         loc = Location(country="us", city="New York")
         assert loc.country == "US"
 
     def test_currency_uppercased(self) -> None:
         from src.core.schemas import TransactionRequest
+
         txn = TransactionRequest(**{**VALID_TRANSACTION, "currency": "usd"})
         assert txn.currency == "USD"
 
     def test_batch_request_max_1000(self) -> None:
         from pydantic import ValidationError
+
         from src.core.schemas import BatchTransactionRequest, TransactionRequest
 
         transactions = [TransactionRequest(**VALID_TRANSACTION)] * 1001
@@ -227,6 +239,7 @@ class TestSchemaValidation:
 
     def test_batch_async_requires_callback(self) -> None:
         from pydantic import ValidationError
+
         from src.core.schemas import BatchTransactionRequest, TransactionRequest
 
         transactions = [TransactionRequest(**VALID_TRANSACTION)]

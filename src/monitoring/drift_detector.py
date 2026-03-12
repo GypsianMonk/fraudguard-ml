@@ -8,11 +8,12 @@ Uses:
 - Kolmogorov-Smirnov test: continuous feature drift
 - Jensen-Shannon divergence: symmetric, bounded [0,1]
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -37,6 +38,7 @@ PSI_THRESHOLDS = {
 @dataclass
 class DriftReport:
     """Comprehensive drift detection report."""
+
     timestamp: str
     overall_drifted: bool
     drifted_features: list[str] = field(default_factory=list)
@@ -112,12 +114,13 @@ class FraudDriftDetector(BaseDriftDetector):
             raise RuntimeError(msg)
 
         report = DriftReport(
-            timestamp=datetime.now(tz=timezone.utc).isoformat(),
+            timestamp=datetime.now(tz=UTC).isoformat(),
             overall_drifted=False,
         )
 
         numeric_cols = [
-            col for col in current_data.select_dtypes(include=[np.number]).columns
+            col
+            for col in current_data.select_dtypes(include=[np.number]).columns
             if col in self._reference_stats
         ]
 
@@ -136,14 +139,14 @@ class FraudDriftDetector(BaseDriftDetector):
             report.feature_ks_statistic[col] = round(float(ks_stat), 4)
             report.feature_ks_pvalue[col] = round(float(ks_pvalue), 4)
 
-            js_div = self._compute_js_divergence(ref_series, current_series.values, ref_stats["bins"])
+            js_div = self._compute_js_divergence(
+                ref_series, current_series.values, ref_stats["bins"]
+            )
             report.feature_js_divergence[col] = round(float(js_div), 4)
 
             if psi > self._psi_threshold or ks_pvalue < self._ks_threshold:
                 report.drifted_features.append(col)
-                logger.warning(
-                    "Drift detected in '%s': PSI=%.3f KS-p=%.4f", col, psi, ks_pvalue
-                )
+                logger.warning("Drift detected in '%s': PSI=%.3f KS-p=%.4f", col, psi, ks_pvalue)
             else:
                 report.stable_features.append(col)
 
@@ -156,18 +159,23 @@ class FraudDriftDetector(BaseDriftDetector):
             "stable_feature_count": len(report.stable_features),
             "drift_rate": len(report.drifted_features) / max(len(numeric_cols), 1),
             "max_psi": max(report.feature_psi.values()) if report.feature_psi else 0.0,
-            "max_ks_stat": max(report.feature_ks_statistic.values()) if report.feature_ks_statistic else 0.0,
+            "max_ks_stat": max(report.feature_ks_statistic.values())
+            if report.feature_ks_statistic
+            else 0.0,
         }
 
         if report.overall_drifted:
             logger.warning(
                 "DATA DRIFT DETECTED: %d/%d features drifted: %s",
-                len(report.drifted_features), len(numeric_cols), report.drifted_features[:5],
+                len(report.drifted_features),
+                len(numeric_cols),
+                report.drifted_features[:5],
             )
         else:
             logger.info(
                 "No drift detected across %d features. Max PSI=%.3f",
-                len(numeric_cols), report.summary["max_psi"],
+                len(numeric_cols),
+                report.summary["max_psi"],
             )
 
         return report

@@ -151,7 +151,11 @@ class FraudEnsemble(BaseModel):
             val_proba = self.predict_proba(X_val)
             metrics["val_auc_roc"] = roc_auc_score(y_val, val_proba)
             metrics["val_auc_pr"] = average_precision_score(y_val, val_proba)
-            logger.info("Val AUC-ROC: %.4f | Val AUC-PR: %.4f", metrics["val_auc_roc"], metrics["val_auc_pr"])
+            logger.info(
+                "Val AUC-ROC: %.4f | Val AUC-PR: %.4f",
+                metrics["val_auc_roc"],
+                metrics["val_auc_pr"],
+            )
 
         return metrics
 
@@ -179,8 +183,7 @@ class FraudEnsemble(BaseModel):
 
             # Weighted average fallback
             return (
-                self._weights["xgboost"] * xgb_proba
-                + self._weights["tabtransformer"] * tab_proba
+                self._weights["xgboost"] * xgb_proba + self._weights["tabtransformer"] * tab_proba
             )
         except Exception as exc:
             msg = f"Ensemble prediction failed: {exc}"
@@ -190,16 +193,16 @@ class FraudEnsemble(BaseModel):
         """Return XGBoost feature importance as ensemble-level importance."""
         return self._xgb.get_feature_importance()
 
-    def get_base_learner_probabilities(
-        self, X: pd.DataFrame
-    ) -> dict[str, np.ndarray]:
+    def get_base_learner_probabilities(self, X: pd.DataFrame) -> dict[str, np.ndarray]:
         """Return individual base learner probabilities (for analysis/debugging)."""
         if not self._is_fitted:
             msg = "Ensemble not fitted"
             raise ModelNotFittedError(msg)
         return {
             "xgboost": self._xgb.predict_proba(X),
-            "tabtransformer": self._tab.predict_proba(X) if self._tab.is_fitted else np.zeros(len(X)),
+            "tabtransformer": self._tab.predict_proba(X)
+            if self._tab.is_fitted
+            else np.zeros(len(X)),
         }
 
     def save(self, path: str) -> None:
@@ -234,4 +237,6 @@ class FraudEnsemble(BaseModel):
         self._is_fitted = meta_artifact["is_fitted"]
         self._training_oof_auc = meta_artifact["training_oof_auc"]
 
-        logger.info("Ensemble loaded from %s (OOF AUC: %.4f)", load_path, self._training_oof_auc or 0)
+        logger.info(
+            "Ensemble loaded from %s (OOF AUC: %.4f)", load_path, self._training_oof_auc or 0
+        )

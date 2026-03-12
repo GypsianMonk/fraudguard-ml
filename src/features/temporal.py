@@ -59,8 +59,8 @@ class TemporalFeatureExtractor:
         features["hour_of_day"] = df["timestamp"].dt.hour.values
         features["day_of_week"] = df["timestamp"].dt.dayofweek.values
         features["is_night"] = (
-            (df["timestamp"].dt.hour >= 23) | (df["timestamp"].dt.hour < 5)
-        ).astype(int).values
+            ((df["timestamp"].dt.hour >= 23) | (df["timestamp"].dt.hour < 5)).astype(int).values
+        )
         features["is_weekend"] = (df["timestamp"].dt.dayofweek >= 5).astype(int).values
         features["day_of_month"] = df["timestamp"].dt.day.values
 
@@ -78,8 +78,8 @@ class TemporalFeatureExtractor:
         df_sorted = df.sort_values(["user_id", "timestamp"])
         df_sorted["prev_timestamp"] = df_sorted.groupby("user_id")["timestamp"].shift(1)
         df_sorted["seconds_since_last_txn"] = (
-            df_sorted["timestamp"] - df_sorted["prev_timestamp"]
-        ).dt.total_seconds().fillna(-1)
+            (df_sorted["timestamp"] - df_sorted["prev_timestamp"]).dt.total_seconds().fillna(-1)
+        )
 
         features = features.merge(
             df_sorted[["transaction_id", "seconds_since_last_txn"]],
@@ -105,11 +105,10 @@ class TemporalFeatureExtractor:
                 window_td = pd.Timedelta(hours=window_h)
                 counts, sums, maxes, unique_merch = [], [], [], []
 
-                for idx, row in user_df.iterrows():
+                for _idx, row in user_df.iterrows():
                     cutoff = row["timestamp"] - window_td
                     window_txns = user_df[
-                        (user_df["timestamp"] > cutoff)
-                        & (user_df["timestamp"] <= row["timestamp"])
+                        (user_df["timestamp"] > cutoff) & (user_df["timestamp"] <= row["timestamp"])
                     ]
                     counts.append(len(window_txns))
                     sums.append(window_txns["amount"].sum())

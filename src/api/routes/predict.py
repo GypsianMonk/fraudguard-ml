@@ -3,6 +3,7 @@ src/api/routes/predict.py
 --------------------------
 Fraud prediction endpoints.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -26,6 +27,7 @@ from src.core.schemas import (
 
 if TYPE_CHECKING:
     import numpy as np
+
     from src.monitoring.metrics_collector import FraudMetricsCollector
 
 logger = logging.getLogger(__name__)
@@ -89,9 +91,7 @@ def _extract_feature_contributions(
         elif "merchant_risk" in name:
             contribs["merchant_risk_score"] = abs_val
         elif "is_night" in name or "hour" in name:
-            contribs["time_of_day_anomaly"] = max(
-                contribs.get("time_of_day_anomaly", 0), abs_val
-            )
+            contribs["time_of_day_anomaly"] = max(contribs.get("time_of_day_anomaly", 0), abs_val)
         elif "card_not_present" in name:
             contribs["card_not_present"] = abs_val
 
@@ -113,9 +113,7 @@ async def predict_single(
 
         if container.feature_store is not None:
             with contextlib.suppress(Exception):
-                user_feats = await container.feature_store.get_user_features(
-                    request.user_id
-                )
+                user_feats = await container.feature_store.get_user_features(request.user_id)
                 for k, v in user_feats.items():
                     df[k] = v
 
@@ -135,9 +133,7 @@ async def predict_single(
             fraud_label=fraud_proba >= 0.5,
             risk_tier=risk_tier,
             model_version=container.model_version,
-            feature_contributions=_extract_feature_contributions(
-                feature_df, shap_values
-            ),
+            feature_contributions=_extract_feature_contributions(feature_df, shap_values),
             latency_ms=latency_ms,
         )
 
@@ -153,15 +149,16 @@ async def predict_single(
                 features={
                     "last_txn_amount": request.amount,
                     "last_txn_timestamp": request.timestamp.isoformat(),
-                    "last_txn_country": (
-                        request.location.country if request.location else "US"
-                    ),
+                    "last_txn_country": (request.location.country if request.location else "US"),
                 },
             )
 
         logger.info(
             "Prediction: txn=%s prob=%.3f tier=%s latency=%dms",
-            request.transaction_id, fraud_proba, risk_tier.value, latency_ms,
+            request.transaction_id,
+            fraud_proba,
+            risk_tier.value,
+            latency_ms,
         )
         return response
 

@@ -3,9 +3,10 @@ src/core/schemas.py
 --------------------
 Pydantic request/response schemas for the FraudGuard ML API.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated
 
@@ -57,7 +58,7 @@ class TransactionRequest(BaseModel):
     merchant_id: str = Field(..., min_length=1, max_length=100)
     merchant_category: MerchantCategory = MerchantCategory.OTHER
     payment_method: PaymentMethod = PaymentMethod.CREDIT_CARD
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
     card_present: bool = False
     device_fingerprint: str | None = None
     ip_address: str | None = None
@@ -88,9 +89,7 @@ class PredictionResponse(BaseModel):
     model_version: str
     feature_contributions: FeatureContributions
     latency_ms: int
-    decision_id: str = Field(
-        default_factory=lambda: __import__("uuid").uuid4().hex
-    )
+    decision_id: str = Field(default_factory=lambda: __import__("uuid").uuid4().hex)
 
 
 class BatchTransactionRequest(BaseModel):

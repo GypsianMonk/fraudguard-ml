@@ -172,7 +172,7 @@ class RedisFeatureStore(BaseFeatureStore):
             values = await pipe.execute()
 
             result = {}
-            for uid, raw in zip(user_ids, values):
+            for uid, raw in zip(user_ids, values, strict=False):
                 result[uid] = json.loads(raw) if raw else {}
             return result
         except Exception as exc:

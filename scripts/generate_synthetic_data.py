@@ -9,12 +9,13 @@ Usage:
     python scripts/generate_synthetic_data.py --n-samples 1000000 --fraud-rate 0.02
     python scripts/generate_synthetic_data.py --n-samples 5000 --output data/raw/ci_test.parquet
 """
+
 from __future__ import annotations
 
 import argparse
 import logging
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -40,18 +41,40 @@ HIGH_RISK_COUNTRIES = {"NG", "RU", "KP", "IR", "BY", "VE"}
 MEDIUM_RISK_COUNTRIES = {"CN", "UA", "VN", "PH", "ID"}
 
 COUNTRY_DIST = {
-    "US": 0.58, "CA": 0.08, "GB": 0.07, "DE": 0.05, "FR": 0.04,
-    "AU": 0.03, "JP": 0.03, "CN": 0.03, "RU": 0.02, "NG": 0.01,
-    "BR": 0.02, "MX": 0.02, "KP": 0.005, "IR": 0.005, "BY": 0.005,
+    "US": 0.58,
+    "CA": 0.08,
+    "GB": 0.07,
+    "DE": 0.05,
+    "FR": 0.04,
+    "AU": 0.03,
+    "JP": 0.03,
+    "CN": 0.03,
+    "RU": 0.02,
+    "NG": 0.01,
+    "BR": 0.02,
+    "MX": 0.02,
+    "KP": 0.005,
+    "IR": 0.005,
+    "BY": 0.005,
     "UA": 0.01,
 }
 
 COUNTRY_COORDS = {
-    "US": (37.0, -95.0), "CA": (56.0, -96.0), "GB": (51.5, -0.1),
-    "DE": (51.0, 10.0), "FR": (46.0, 2.0), "AU": (-25.0, 134.0),
-    "JP": (36.0, 138.0), "CN": (35.0, 105.0), "RU": (60.0, 60.0),
-    "NG": (8.0, 8.0), "BR": (-10.0, -55.0), "MX": (23.0, -102.0),
-    "KP": (40.0, 127.0), "IR": (32.0, 53.0), "BY": (53.0, 28.0),
+    "US": (37.0, -95.0),
+    "CA": (56.0, -96.0),
+    "GB": (51.5, -0.1),
+    "DE": (51.0, 10.0),
+    "FR": (46.0, 2.0),
+    "AU": (-25.0, 134.0),
+    "JP": (36.0, 138.0),
+    "CN": (35.0, 105.0),
+    "RU": (60.0, 60.0),
+    "NG": (8.0, 8.0),
+    "BR": (-10.0, -55.0),
+    "MX": (23.0, -102.0),
+    "KP": (40.0, 127.0),
+    "IR": (32.0, 53.0),
+    "BY": (53.0, 28.0),
     "UA": (49.0, 32.0),
 }
 
@@ -64,11 +87,13 @@ def generate_transactions(
 ) -> pd.DataFrame:
     """Generate synthetic transaction data with realistic fraud patterns."""
     rng = np.random.default_rng(seed)
-    start_date = start_date or datetime(2023, 1, 1, tzinfo=timezone.utc)
+    start_date = start_date or datetime(2023, 1, 1, tzinfo=UTC)
 
     logger.info(
         "Generating %d transactions (fraud_rate=%.1f%%, seed=%d)",
-        n_samples, fraud_rate * 100, seed,
+        n_samples,
+        fraud_rate * 100,
+        seed,
     )
 
     n_users = max(100, n_samples // 50)
@@ -80,7 +105,9 @@ def generate_transactions(
     merchant_cat_map = dict(zip(merchant_ids, merchant_categories, strict=True))
 
     user_countries = rng.choice(
-        list(COUNTRY_DIST.keys()), size=n_users, p=list(COUNTRY_DIST.values()),
+        list(COUNTRY_DIST.keys()),
+        size=n_users,
+        p=list(COUNTRY_DIST.values()),
     )
     user_country_map = dict(zip(user_ids, user_countries, strict=True))
 
@@ -97,25 +124,25 @@ def generate_transactions(
 
     payment_methods = rng.choice(
         ["credit_card", "debit_card", "digital_wallet", "bank_transfer", "bnpl"],
-        size=n_samples, p=[0.48, 0.27, 0.15, 0.07, 0.03],
+        size=n_samples,
+        p=[0.48, 0.27, 0.15, 0.07, 0.03],
     )
     currencies = rng.choice(
         ["USD", "EUR", "GBP", "CAD", "AUD", "JPY"],
-        size=n_samples, p=[0.58, 0.18, 0.09, 0.07, 0.04, 0.04],
+        size=n_samples,
+        p=[0.58, 0.18, 0.09, 0.07, 0.04, 0.04],
     )
 
     n_devices = max(200, n_samples // 100)
     device_ids = [f"fp_{i:05d}" for i in range(n_devices)]
     user_device_map = {
-        uid: rng.choice(device_ids, size=rng.integers(1, 4)).tolist()
-        for uid in user_ids
+        uid: rng.choice(device_ids, size=rng.integers(1, 4)).tolist() for uid in user_ids
     }
     txn_devices = [rng.choice(user_device_map[uid]) for uid in txn_user_ids]
     card_present = rng.choice([True, False], size=n_samples, p=[0.35, 0.65])
 
     txn_countries = [
-        rng.choice(list(COUNTRY_DIST.keys())) if rng.random() < 0.08
-        else user_country_map[uid]
+        rng.choice(list(COUNTRY_DIST.keys())) if rng.random() < 0.08 else user_country_map[uid]
         for uid in txn_user_ids
     ]
 
@@ -127,15 +154,18 @@ def generate_transactions(
 
     # Fraud probability model
     fraud_base = np.full(n_samples, fraud_rate * 0.3)
-    fraud_base += np.array(
-        [MERCHANT_FRAUD_RATES.get(c, 0.02) for c in merchant_categories_col]
-    ) * 0.4
-    fraud_base += np.array([
-        0.08 if c in HIGH_RISK_COUNTRIES
-        else 0.04 if c in MEDIUM_RISK_COUNTRIES
-        else 0.01
-        for c in txn_countries
-    ]) * 0.3
+    fraud_base += (
+        np.array([MERCHANT_FRAUD_RATES.get(c, 0.02) for c in merchant_categories_col]) * 0.4
+    )
+    fraud_base += (
+        np.array(
+            [
+                0.08 if c in HIGH_RISK_COUNTRIES else 0.04 if c in MEDIUM_RISK_COUNTRIES else 0.01
+                for c in txn_countries
+            ]
+        )
+        * 0.3
+    )
     fraud_base += (~np.array(card_present)).astype(float) * 0.01
     hours = np.array([t.hour for t in timestamps])
     fraud_base += ((hours >= 23) | (hours < 5)).astype(float) * 0.015
@@ -156,27 +186,31 @@ def generate_transactions(
         fraud_idx = np.where(is_fraud)[0]
         is_fraud[rng.choice(fraud_idx, size=current_fraud - target_fraud, replace=False)] = False
 
-    df = pd.DataFrame({
-        "transaction_id": [f"txn_{i:09d}" for i in range(n_samples)],
-        "user_id": txn_user_ids,
-        "amount": amounts,
-        "currency": currencies,
-        "merchant_id": txn_merchant_ids,
-        "merchant_category": merchant_categories_col,
-        "payment_method": payment_methods,
-        "timestamp": timestamps,
-        "card_present": card_present,
-        "device_fingerprint": txn_devices,
-        "country": txn_countries,
-        "latitude": np.round(lats, 4),
-        "longitude": np.round(lons, 4),
-        "is_fraud": is_fraud.astype(int),
-    })
+    df = pd.DataFrame(
+        {
+            "transaction_id": [f"txn_{i:09d}" for i in range(n_samples)],
+            "user_id": txn_user_ids,
+            "amount": amounts,
+            "currency": currencies,
+            "merchant_id": txn_merchant_ids,
+            "merchant_category": merchant_categories_col,
+            "payment_method": payment_methods,
+            "timestamp": timestamps,
+            "card_present": card_present,
+            "device_fingerprint": txn_devices,
+            "country": txn_countries,
+            "latitude": np.round(lats, 4),
+            "longitude": np.round(lons, 4),
+            "is_fraud": is_fraud.astype(int),
+        }
+    )
 
     logger.info(
         "Generated %d transactions | fraud_rate=%.2f%% | date_range=%s to %s",
-        len(df), df["is_fraud"].mean() * 100,
-        df["timestamp"].min().date(), df["timestamp"].max().date(),
+        len(df),
+        df["is_fraud"].mean() * 100,
+        df["timestamp"].min().date(),
+        df["timestamp"].max().date(),
     )
     return df
 
@@ -193,7 +227,9 @@ def main() -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     df = generate_transactions(
-        n_samples=args.n_samples, fraud_rate=args.fraud_rate, seed=args.seed,
+        n_samples=args.n_samples,
+        fraud_rate=args.fraud_rate,
+        seed=args.seed,
     )
 
     if output_path.suffix == ".parquet":
@@ -204,9 +240,7 @@ def main() -> None:
         logger.error("Unsupported format: %s", output_path.suffix)
         sys.exit(1)
 
-    logger.info(
-        "Data saved to %s (%.1f MB)", output_path, output_path.stat().st_size / 1024 / 1024
-    )
+    logger.info("Data saved to %s (%.1f MB)", output_path, output_path.stat().st_size / 1024 / 1024)
 
 
 if __name__ == "__main__":

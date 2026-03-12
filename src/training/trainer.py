@@ -101,37 +101,47 @@ class FraudModelTrainer:
             logger.info("Splitting data: train/val/test")
             X, y = df.drop(columns=["is_fraud"]), df["is_fraud"]
             X_temp, X_test, y_temp, y_test = train_test_split(
-                X, y,
+                X,
+                y,
                 test_size=settings.training.test_size,
                 random_state=settings.training.seed,
                 stratify=y,
             )
             X_train, X_val, y_train, y_val = train_test_split(
-                X_temp, y_temp,
+                X_temp,
+                y_temp,
                 test_size=settings.training.validation_size / (1 - settings.training.test_size),
                 random_state=settings.training.seed,
                 stratify=y_temp,
             )
             logger.info(
                 "Split sizes: train=%d, val=%d, test=%d",
-                len(X_train), len(X_val), len(X_test),
+                len(X_train),
+                len(X_val),
+                len(X_test),
             )
 
-            mlflow.log_params({
-                "train_size": len(X_train),
-                "val_size": len(X_val),
-                "test_size_count": len(X_test),
-                "fraud_train_rate": float(y_train.mean()),
-                "random_seed": settings.training.seed,
-                "skip_tabtransformer": skip_tabtransformer,
-            })
+            mlflow.log_params(
+                {
+                    "train_size": len(X_train),
+                    "val_size": len(X_val),
+                    "test_size_count": len(X_test),
+                    "fraud_train_rate": float(y_train.mean()),
+                    "random_seed": settings.training.seed,
+                    "skip_tabtransformer": skip_tabtransformer,
+                }
+            )
 
             # --- Step 3: Feature engineering ---
             logger.info("Fitting feature engineering pipeline")
             engineer = FraudFeatureEngineer(mode="training")
             X_train_feat = engineer.fit_transform(X_train.assign(is_fraud=y_train))
-            X_val_feat = engineer.transform(X_val.assign(is_fraud=y_val)).drop(columns=["is_fraud"], errors="ignore")
-            X_test_feat = engineer.transform(X_test.assign(is_fraud=y_test)).drop(columns=["is_fraud"], errors="ignore")
+            X_val_feat = engineer.transform(X_val.assign(is_fraud=y_val)).drop(
+                columns=["is_fraud"], errors="ignore"
+            )
+            X_test_feat = engineer.transform(X_test.assign(is_fraud=y_test)).drop(
+                columns=["is_fraud"], errors="ignore"
+            )
 
             # Remove target from feature matrices
             for col in ["is_fraud", "transaction_id", "user_id", "merchant_id", "timestamp"]:
@@ -146,8 +156,10 @@ class FraudModelTrainer:
             logger.info("Training ensemble model")
             ensemble = FraudEnsemble()
             train_metrics = ensemble.train(
-                X_train_feat, y_train,
-                X_val=X_val_feat, y_val=y_val,
+                X_train_feat,
+                y_train,
+                X_val=X_val_feat,
+                y_val=y_val,
                 skip_tabtransformer=skip_tabtransformer,
             )
             mlflow.log_metrics({f"train_{k}": v for k, v in train_metrics.items()})
@@ -169,6 +181,7 @@ class FraudModelTrainer:
 
             # Save feature engineer
             import joblib
+
             joblib.dump(engineer, artifacts_dir / "feature_engineer.joblib")
 
             # Log artifacts to MLflow
@@ -234,7 +247,9 @@ class FraudModelTrainer:
 
         logger.info(
             "Data validation passed: %d samples, %d fraud (%.2f%%)",
-            len(df), fraud_count, fraud_count / len(df) * 100,
+            len(df),
+            fraud_count,
+            fraud_count / len(df) * 100,
         )
 
     def _maybe_register_model(
@@ -249,7 +264,8 @@ class FraudModelTrainer:
         if aucpr < self.PRODUCTION_AUCPR_THRESHOLD:
             logger.warning(
                 "Model AUC-PR %.4f below threshold %.4f. Not registering to Production.",
-                aucpr, self.PRODUCTION_AUCPR_THRESHOLD,
+                aucpr,
+                self.PRODUCTION_AUCPR_THRESHOLD,
             )
             return None
 

@@ -85,14 +85,16 @@ class ModelEvaluator:
         metrics[f"{prefix}_optimal_youden_j"] = optimal_j
 
         y_pred_opt = (y_proba >= optimal_threshold).astype(int)
-        metrics[f"{prefix}_precision_optimal"] = precision_score(y_true, y_pred_opt, zero_division=0)
+        metrics[f"{prefix}_precision_optimal"] = precision_score(
+            y_true, y_pred_opt, zero_division=0
+        )
         metrics[f"{prefix}_recall_optimal"] = recall_score(y_true, y_pred_opt, zero_division=0)
         metrics[f"{prefix}_f1_optimal"] = f1_score(y_true, y_pred_opt, zero_division=0)
 
         # --- Precision at fixed recall levels (critical for fraud ops) ---
         for recall_target in [0.80, 0.85, 0.90, 0.95, 0.99]:
             prec_at_recall = self._precision_at_recall(y_true, y_proba, recall_target)
-            metrics[f"{prefix}_prec_at_{int(recall_target*100)}recall"] = prec_at_recall
+            metrics[f"{prefix}_prec_at_{int(recall_target * 100)}recall"] = prec_at_recall
 
         # --- Calibration quality ---
         metrics[f"{prefix}_brier_score"] = brier_score_loss(y_true, y_proba)
@@ -169,6 +171,7 @@ class ModelEvaluator:
             return 0.0
 
         from scipy.stats import ks_2samp
+
         ks_stat, _ = ks_2samp(fraud_scores, legit_scores)
         return float(ks_stat)
 
@@ -233,12 +236,14 @@ class ModelEvaluator:
         analysis = []
         for t in thresholds:
             y_pred = (y_proba >= t).astype(int)
-            analysis.append({
-                "threshold": float(t),
-                "precision": float(precision_score(y_true, y_pred, zero_division=0)),
-                "recall": float(recall_score(y_true, y_pred, zero_division=0)),
-                "f1": float(f1_score(y_true, y_pred, zero_division=0)),
-                "n_flagged": int(y_pred.sum()),
-                "flag_rate_pct": float(y_pred.mean() * 100),
-            })
+            analysis.append(
+                {
+                    "threshold": float(t),
+                    "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+                    "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+                    "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+                    "n_flagged": int(y_pred.sum()),
+                    "flag_rate_pct": float(y_pred.mean() * 100),
+                }
+            )
         return analysis

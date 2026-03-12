@@ -3,6 +3,7 @@ tests/unit/test_xgboost_model.py
 ---------------------------------
 Unit tests for XGBoostFraudModel.
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -49,7 +50,6 @@ def fitted_model(dataset):
 
 
 class TestXGBoostFraudModel:
-
     def test_not_fitted_initially(self):
         assert not XGBoostFraudModel().is_fitted
 
@@ -81,6 +81,7 @@ class TestXGBoostFraudModel:
 
     def test_model_learns_signal(self, dataset):
         from sklearn.metrics import roc_auc_score
+
         x_train, x_val, y_train, y_val = dataset
         model = XGBoostFraudModel()
         model.train(x_train, y_train, X_val=x_val, y_val=y_val)

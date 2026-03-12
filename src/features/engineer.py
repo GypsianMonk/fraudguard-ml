@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -23,29 +22,45 @@ logger = logging.getLogger(__name__)
 
 # Columns required in the raw input DataFrame
 REQUIRED_COLUMNS = [
-    "transaction_id", "user_id", "amount", "currency",
-    "merchant_id", "merchant_category", "timestamp",
+    "transaction_id",
+    "user_id",
+    "amount",
+    "currency",
+    "merchant_id",
+    "merchant_category",
+    "timestamp",
     "is_fraud",  # Only required during training
 ]
 
 INFERENCE_REQUIRED_COLUMNS = [
-    "transaction_id", "user_id", "amount", "currency",
-    "merchant_id", "merchant_category", "timestamp",
+    "transaction_id",
+    "user_id",
+    "amount",
+    "currency",
+    "merchant_id",
+    "merchant_category",
+    "timestamp",
 ]
 
 CATEGORICAL_COLUMNS = [
-    "merchant_category", "payment_method", "currency",
-    "country", "device_type",
+    "merchant_category",
+    "payment_method",
+    "currency",
+    "country",
+    "device_type",
 ]
 
 NUMERICAL_COLUMNS = [
-    "amount", "latitude", "longitude",
+    "amount",
+    "latitude",
+    "longitude",
 ]
 
 
 @dataclass
 class FeaturePipelineArtifacts:
     """Holds all fitted transformation artifacts for serialization."""
+
     label_encoders: dict[str, LabelEncoder] = field(default_factory=dict)
     scaler: StandardScaler | None = None
     feature_names: list[str] = field(default_factory=list)
@@ -123,8 +138,11 @@ class FraudFeatureEngineer(BaseFeatureEngineer):
                 self._artifacts.label_encoders[col] = le
 
         # Fit scaler on numerical columns
-        numerical_cols = [c for c in featured_df.columns if c in NUMERICAL_COLUMNS
-                         or c.startswith(("velocity_", "amount_", "count_", "ratio_"))]
+        numerical_cols = [
+            c
+            for c in featured_df.columns
+            if c in NUMERICAL_COLUMNS or c.startswith(("velocity_", "amount_", "count_", "ratio_"))
+        ]
         if numerical_cols:
             self._artifacts.scaler = StandardScaler()
             self._artifacts.scaler.fit(featured_df[numerical_cols].fillna(0))
@@ -132,7 +150,9 @@ class FraudFeatureEngineer(BaseFeatureEngineer):
         self._artifacts.feature_names = self._get_feature_names(featured_df)
         self._artifacts.is_fitted = True
 
-        logger.info("Feature pipeline fitted. Total features: %d", len(self._artifacts.feature_names))
+        logger.info(
+            "Feature pipeline fitted. Total features: %d", len(self._artifacts.feature_names)
+        )
         return self
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -192,8 +212,11 @@ class FraudFeatureEngineer(BaseFeatureEngineer):
         device_feats = self._compute_device_features(df)
 
         # Merge all feature groups
-        base = df[INFERENCE_REQUIRED_COLUMNS + ["is_fraud"]].copy() \
-            if "is_fraud" in df.columns else df[INFERENCE_REQUIRED_COLUMNS].copy()
+        base = (
+            df[INFERENCE_REQUIRED_COLUMNS + ["is_fraud"]].copy()
+            if "is_fraud" in df.columns
+            else df[INFERENCE_REQUIRED_COLUMNS].copy()
+        )
 
         for feats in [temporal_feats, behavioral_feats, txn_feats, geo_feats, device_feats]:
             if feats is not None and len(feats) > 0:
@@ -228,12 +251,17 @@ class FraudFeatureEngineer(BaseFeatureEngineer):
         merged2 = df.merge(merchant_user_counts, on=["user_id", "merchant_id"], how="left")
         feats["is_new_merchant"] = (merged2["user_merchant_txn_count"] == 1).astype(int).values
         feats["merchant_risk_proxy"] = (
-            df["merchant_category"].isin(["online_gambling", "electronics", "jewelry"]).astype(int).values
+            df["merchant_category"]
+            .isin(["online_gambling", "electronics", "jewelry"])
+            .astype(int)
+            .values
         )
 
         # Category features
         feats["merchant_category"] = df["merchant_category"].values
-        feats["payment_method"] = df.get("payment_method", pd.Series(["credit_card"] * len(df))).values
+        feats["payment_method"] = df.get(
+            "payment_method", pd.Series(["credit_card"] * len(df))
+        ).values
 
         return feats
 
@@ -265,14 +293,13 @@ class FraudFeatureEngineer(BaseFeatureEngineer):
         """Device and card presence features."""
         feats = pd.DataFrame({"transaction_id": df["transaction_id"]})
 
-        feats["card_not_present"] = (~df.get("card_present", pd.Series([True] * len(df)))).astype(int).values
+        feats["card_not_present"] = (
+            (~df.get("card_present", pd.Series([True] * len(df)))).astype(int).values
+        )
 
         if "device_fingerprint" in df.columns:
             # Count unique devices per user
-            device_user = (
-                df.groupby("user_id")["device_fingerprint"]
-                .transform("nunique")
-            )
+            device_user = df.groupby("user_id")["device_fingerprint"].transform("nunique")
             feats["unique_devices_per_user"] = device_user.values
             feats["has_device_fingerprint"] = df["device_fingerprint"].notna().astype(int).values
         else:

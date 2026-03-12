@@ -4,6 +4,7 @@ src/training/tuner.py
 Optuna-based hyperparameter optimization with MLflow integration.
 Uses TPE sampler + Hyperband pruner for efficient exploration.
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,7 +66,9 @@ class FraudHyperparamTuner:
         """
         logger.info(
             "Starting Optuna HPO: %d trials, %d-fold CV, metric=%s",
-            self._n_trials, self._cv_folds, self._metric,
+            self._n_trials,
+            self._cv_folds,
+            self._metric,
         )
 
         self._study = optuna.create_study(

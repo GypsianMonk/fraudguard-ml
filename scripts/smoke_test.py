@@ -41,7 +41,7 @@ class SmokeTestSuite:
         return {"X-API-Key": self.api_key, "Content-Type": "application/json"}
 
     def run_all(self) -> bool:
-        print(f"\n🔍 Running smoke tests against {self.base_url}\n{'='*55}")
+        print(f"\n🔍 Running smoke tests against {self.base_url}\n{'=' * 55}")
 
         self._test_health()
         self._test_readiness()
@@ -61,13 +61,17 @@ class SmokeTestSuite:
         try:
             result_data = fn()
             latency = (time.monotonic() - start) * 1000
-            result = TestResult(name=name, passed=True, latency_ms=latency, response_data=result_data)
+            result = TestResult(
+                name=name, passed=True, latency_ms=latency, response_data=result_data
+            )
         except AssertionError as e:
             latency = (time.monotonic() - start) * 1000
             result = TestResult(name=name, passed=False, latency_ms=latency, error=str(e))
         except Exception as e:
             latency = (time.monotonic() - start) * 1000
-            result = TestResult(name=name, passed=False, latency_ms=latency, error=f"{type(e).__name__}: {e}")
+            result = TestResult(
+                name=name, passed=False, latency_ms=latency, error=f"{type(e).__name__}: {e}"
+            )
 
         icon = "✅" if result.passed else "❌"
         status = f"{icon} {name:<45} {result.latency_ms:>6.0f}ms"
@@ -85,6 +89,7 @@ class SmokeTestSuite:
             data = r.json()
             assert data["status"] == "ok", f"Expected status=ok, got {data}"
             return data
+
         self._run_test("GET /health returns 200", fn)
 
     def _test_readiness(self) -> None:
@@ -96,6 +101,7 @@ class SmokeTestSuite:
             if self.strict:
                 assert data["model_loaded"], "Model not loaded (strict mode)"
             return data
+
         self._run_test("GET /ready returns valid response", fn)
 
     def _test_metrics_endpoint(self) -> None:
@@ -104,6 +110,7 @@ class SmokeTestSuite:
             assert r.status_code == 200, f"Expected 200, got {r.status_code}"
             assert "fraudguard_predictions_total" in r.text or "python_info" in r.text
             return {"metrics_length": len(r.text)}
+
         self._run_test("GET /metrics returns Prometheus format", fn)
 
     def _test_predict_valid_transaction(self) -> None:
@@ -136,6 +143,7 @@ class SmokeTestSuite:
             assert data["risk_tier"] in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
             assert data["transaction_id"] == payload["transaction_id"]
             return data
+
         self._run_test("POST /api/v1/predict — valid transaction", fn)
 
     def _test_predict_high_risk_transaction(self) -> None:
@@ -163,6 +171,7 @@ class SmokeTestSuite:
             data = r.json()
             assert data["fraud_probability"] > 0.0, "High-risk txn should have non-zero fraud prob"
             return data
+
         self._run_test("POST /api/v1/predict — high-risk transaction", fn)
 
     def _test_predict_auth_required(self) -> None:
@@ -174,6 +183,7 @@ class SmokeTestSuite:
             )
             assert r.status_code == 401, f"Expected 401, got {r.status_code}"
             return {"status_code": r.status_code}
+
         self._run_test("POST /api/v1/predict — 401 without API key", fn)
 
     def _test_predict_invalid_amount(self) -> None:
@@ -193,6 +203,7 @@ class SmokeTestSuite:
             )
             assert r.status_code == 422, f"Expected 422, got {r.status_code}"
             return {"status_code": r.status_code}
+
         self._run_test("POST /api/v1/predict — 422 for negative amount", fn)
 
     def _test_batch_predict(self) -> None:
@@ -225,6 +236,7 @@ class SmokeTestSuite:
             assert data["status"] == "completed"
             assert len(data.get("predictions", [])) == 5
             return {"total": data["total"], "status": data["status"]}
+
         self._run_test("POST /api/v1/predict/batch — 5 transactions", fn)
 
     def _test_model_info(self) -> None:
@@ -238,6 +250,7 @@ class SmokeTestSuite:
             data = r.json()
             assert "model_version" in data
             return data
+
         self._run_test("GET /api/v1/admin/model/info", fn)
 
     def _test_latency_sla(self) -> None:
@@ -273,7 +286,12 @@ class SmokeTestSuite:
                 raise AssertionError(msg)
 
             import statistics
-            p99 = sorted(latencies)[int(len(latencies) * 0.99)] if len(latencies) > 1 else latencies[0]
+
+            p99 = (
+                sorted(latencies)[int(len(latencies) * 0.99)]
+                if len(latencies) > 1
+                else latencies[0]
+            )
             p50 = statistics.median(latencies)
 
             assert p99 < 500, f"P99 latency {p99:.0f}ms exceeds 500ms SLA (strict: 200ms)"
@@ -286,7 +304,7 @@ class SmokeTestSuite:
         total = len(self.results)
         failed = total - passed
 
-        print(f"\n{'='*55}")
+        print(f"\n{'=' * 55}")
         print(f"Results: {passed}/{total} tests passed", end="")
         if failed > 0:
             print(f" | {failed} FAILED")
@@ -307,7 +325,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="FraudGuard ML smoke tests")
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--api-key", default="dev-key-local")
-    parser.add_argument("--strict", action="store_true", help="Fail on any warning (for production)")
+    parser.add_argument(
+        "--strict", action="store_true", help="Fail on any warning (for production)"
+    )
     args = parser.parse_args()
 
     suite = SmokeTestSuite(base_url=args.base_url, api_key=args.api_key, strict=args.strict)

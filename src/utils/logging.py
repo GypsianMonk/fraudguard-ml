@@ -75,6 +75,7 @@ class RequestContextFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         import structlog.contextvars as cv
+
         ctx = cv.get_contextvars()
         record.request_id = ctx.get("request_id", "-")
         record.user_id = ctx.get("user_id", "-")

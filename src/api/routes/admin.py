@@ -33,7 +33,9 @@ async def get_model_info(
         model_stage="Production",
         training_date=None,
         metrics={},  # Would load from MLflow in full implementation
-        feature_count=len(container.feature_engineer.get_feature_names()) if container.model_loaded else 0,
+        feature_count=len(container.feature_engineer.get_feature_names())
+        if container.model_loaded
+        else 0,
         ensemble_weights={"xgboost": 0.55, "tabtransformer": 0.45},
     )
 
@@ -42,7 +44,7 @@ async def get_model_info(
     "/model/reload",
     summary="Hot-reload model from registry",
     description="Reload the model from MLflow registry without downtime. "
-                "New requests use new model after reload completes.",
+    "New requests use new model after reload completes.",
 )
 async def reload_model(
     request: ModelReloadRequest,
@@ -69,6 +71,7 @@ async def reload_model(
     # Here we trigger a re-initialization
     try:
         from src.core.config import get_settings
+
         settings = get_settings()
         await container._load_model(settings)
         logger.info("Model hot-reloaded successfully: %s", container.model_version)

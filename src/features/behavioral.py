@@ -89,7 +89,9 @@ class BehavioralFeatureExtractor:
                 .reset_index(name="user_category_count")
             )
             merged2 = df.merge(cat_user_counts, on=["user_id", "merchant_category"], how="left")
-            merged2 = merged2.merge(user_stats[["user_id", "user_txn_count"]], on="user_id", how="left")
+            merged2 = merged2.merge(
+                user_stats[["user_id", "user_txn_count"]], on="user_id", how="left"
+            )
             features["category_frequency_ratio"] = (
                 merged2["user_category_count"] / (merged2["user_txn_count"] + 1e-8)
             ).values
@@ -115,7 +117,7 @@ class BehavioralFeatureExtractor:
         """Compute each transaction's percentile rank within user's amount distribution."""
         result = np.full(len(df), 0.5)
 
-        for user_id, group in df.groupby("user_id"):
+        for _user_id, group in df.groupby("user_id"):
             idx = group.index
             amounts = group["amount"].values
             if len(amounts) > 1:

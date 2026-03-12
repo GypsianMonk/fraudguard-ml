@@ -3,9 +3,10 @@ src/api/routes/health.py
 -------------------------
 Kubernetes-compatible health and readiness probes.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -20,7 +21,7 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse, summary="Liveness probe")
 async def health_check() -> HealthResponse:
     """Returns 200 if the process is alive."""
-    return HealthResponse(status="ok", timestamp=datetime.now(tz=timezone.utc))
+    return HealthResponse(status="ok", timestamp=datetime.now(tz=UTC))
 
 
 @router.get("/ready", response_model=ReadinessResponse, summary="Readiness probe")
@@ -45,6 +46,6 @@ async def readiness_check(
         model_version=container.model_version if container.model_loaded else None,
         feature_store_connected=container.feature_store_connected,
         mlflow_connected=mlflow_connected,
-        timestamp=datetime.now(tz=timezone.utc),
+        timestamp=datetime.now(tz=UTC),
     )
     return JSONResponse(content=response.model_dump(mode="json"), status_code=status_code)

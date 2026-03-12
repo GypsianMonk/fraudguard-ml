@@ -140,11 +140,13 @@ class FraudMetricsCollector:
 
     def set_model_info(self, version: str, stage: str, training_date: str) -> None:
         """Set static model metadata."""
-        self.model_info.info({
-            "version": version,
-            "stage": stage,
-            "training_date": training_date,
-        })
+        self.model_info.info(
+            {
+                "version": version,
+                "stage": stage,
+                "training_date": training_date,
+            }
+        )
 
 
 @lru_cache(maxsize=1)

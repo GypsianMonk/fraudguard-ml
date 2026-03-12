@@ -3,7 +3,9 @@ src/data/ingestion/batch_ingester.py
 --------------------------------------
 Batch data ingestion from local files and cloud storage (S3/GCS).
 """
+
 from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import Any
@@ -24,6 +26,7 @@ REQUIRED_SCHEMA = {
     "timestamp": "datetime64[ns]",
     "is_fraud": "int64",
 }
+
 
 class BatchIngester(BaseDataIngester):
     """Ingest transaction data from Parquet or CSV files."""

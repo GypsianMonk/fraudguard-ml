@@ -22,6 +22,7 @@ class FraudGuardError(Exception):
 
 # --- Data Layer Exceptions ---
 
+
 class DataIngestionError(FraudGuardError):
     """Raised when data ingestion fails (network, format, schema issues)."""
 
@@ -40,6 +41,7 @@ class SchemaValidationError(DataValidationError):
 
 # --- Feature Layer Exceptions ---
 
+
 class FeatureEngineeringError(FraudGuardError):
     """Raised when feature transformation fails."""
 
@@ -53,6 +55,7 @@ class FeatureStoreConnectionError(FeatureStoreError):
 
 
 # --- Model Layer Exceptions ---
+
 
 class ModelNotFoundError(FraudGuardError):
     """Raised when a requested model version doesn't exist."""
@@ -82,6 +85,7 @@ class EnsembleError(FraudGuardError):
 
 # --- Training Exceptions ---
 
+
 class TrainingError(FraudGuardError):
     """Raised when model training fails."""
 
@@ -102,6 +106,7 @@ class InsufficientDataError(TrainingError):
 
 # --- Monitoring Exceptions ---
 
+
 class DriftDetectionError(FraudGuardError):
     """Raised when drift detection computation fails."""
 
@@ -111,6 +116,7 @@ class AlertingError(FraudGuardError):
 
 
 # --- API / Infrastructure Exceptions ---
+
 
 class AuthenticationError(FraudGuardError):
     """Raised when API authentication fails."""

@@ -3,6 +3,7 @@ src/api/dependencies.py
 -----------------------
 Dependency injection container for FastAPI.
 """
+
 from __future__ import annotations
 
 import logging
@@ -58,7 +59,6 @@ class AppContainer:
             self._model = FraudEnsemble()
             self._model.load(f"{local_path}/model")
 
-            from src.features.engineer import FraudFeatureEngineer
             self._feature_engineer = joblib.load(f"{local_path}/feature_engineer.joblib")
             self._model_version = version
             self._model_loaded = True
@@ -104,13 +104,15 @@ class AppContainer:
     @property
     def model(self) -> FraudEnsemble:
         if self._model is None:
-            raise ModelLoadError("Model not loaded")
+            msg = "Model not loaded"
+            raise ModelLoadError(msg)
         return self._model
 
     @property
     def feature_engineer(self) -> FraudFeatureEngineer:
         if self._feature_engineer is None:
-            raise ModelLoadError("Feature engineer not loaded")
+            msg = "Feature engineer not loaded"
+            raise ModelLoadError(msg)
         return self._feature_engineer
 
     @property

@@ -63,20 +63,31 @@ def random_predictions() -> tuple[np.ndarray, np.ndarray]:
 class TestModelEvaluator:
     """Unit tests for ModelEvaluator."""
 
-    def test_evaluate_returns_dict(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_evaluate_returns_dict(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         assert isinstance(metrics, dict)
         assert len(metrics) > 0
 
-    def test_all_expected_metrics_present(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_all_expected_metrics_present(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
 
         required_keys = [
-            "test_auc_roc", "test_auc_pr", "test_gini", "test_ks_statistic",
-            "test_precision_t50", "test_recall_t50", "test_f1_t50",
-            "test_brier_score", "test_log_loss", "test_optimal_threshold",
+            "test_auc_roc",
+            "test_auc_pr",
+            "test_gini",
+            "test_ks_statistic",
+            "test_precision_t50",
+            "test_recall_t50",
+            "test_f1_t50",
+            "test_brier_score",
+            "test_log_loss",
+            "test_optimal_threshold",
         ]
         for key in required_keys:
             assert key in metrics, f"Missing metric: {key}"
@@ -91,17 +102,23 @@ class TestModelEvaluator:
         metrics = evaluator.evaluate(y_true, y_proba)
         assert 0.0 <= metrics["test_auc_pr"] <= 1.0
 
-    def test_brier_score_range(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_brier_score_range(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         assert 0.0 <= metrics["test_brier_score"] <= 1.0
 
-    def test_perfect_model_auc_roc_near_1(self, evaluator: ModelEvaluator, perfect_predictions: tuple) -> None:
+    def test_perfect_model_auc_roc_near_1(
+        self, evaluator: ModelEvaluator, perfect_predictions: tuple
+    ) -> None:
         y_true, y_proba = perfect_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         assert metrics["test_auc_roc"] > 0.99
 
-    def test_random_model_auc_roc_near_0_5(self, evaluator: ModelEvaluator, random_predictions: tuple) -> None:
+    def test_random_model_auc_roc_near_0_5(
+        self, evaluator: ModelEvaluator, random_predictions: tuple
+    ) -> None:
         y_true, y_proba = random_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         # Random model should be near 0.5 AUC
@@ -119,37 +136,49 @@ class TestModelEvaluator:
         rand_auc = evaluator.evaluate(y_rand, p_rand)["test_auc_roc"]
         assert good_auc > rand_auc
 
-    def test_ks_statistic_range(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_ks_statistic_range(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         assert 0.0 <= metrics["test_ks_statistic"] <= 1.0
 
-    def test_gini_equals_2_times_auc_minus_1(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_gini_equals_2_times_auc_minus_1(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         expected_gini = 2 * metrics["test_auc_roc"] - 1
         assert abs(metrics["test_gini"] - expected_gini) < 1e-9
 
-    def test_precision_at_recall_thresholds_present(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_precision_at_recall_thresholds_present(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         for recall_target in [80, 85, 90, 95, 99]:
             assert f"test_prec_at_{recall_target}recall" in metrics
 
-    def test_fraud_catch_rate_metrics_present(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_fraud_catch_rate_metrics_present(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         for pct in [1, 5, 10, 20]:
             assert f"test_fraud_catch_rate_top{pct}pct" in metrics
 
-    def test_fraud_catch_rate_values_in_range(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_fraud_catch_rate_values_in_range(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         metrics = evaluator.evaluate(y_true, y_proba)
         for pct in [1, 5, 10, 20]:
             rate = metrics[f"test_fraud_catch_rate_top{pct}pct"]
             assert 0.0 <= rate <= 1.0
 
-    def test_save_report_creates_json_file(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_save_report_creates_json_file(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         with tempfile.TemporaryDirectory() as tmp_dir:
             report_path = str(Path(tmp_dir) / "report.json")
@@ -164,7 +193,9 @@ class TestModelEvaluator:
             assert "classification_report" in report
             assert "threshold_analysis" in report
 
-    def test_save_report_confusion_matrix_keys(self, evaluator: ModelEvaluator, balanced_predictions: tuple) -> None:
+    def test_save_report_confusion_matrix_keys(
+        self, evaluator: ModelEvaluator, balanced_predictions: tuple
+    ) -> None:
         y_true, y_proba = balanced_predictions
         with tempfile.TemporaryDirectory() as tmp_dir:
             report_path = str(Path(tmp_dir) / "report.json")

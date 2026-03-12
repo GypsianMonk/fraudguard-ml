@@ -7,6 +7,7 @@ Rule: only the top-level `Settings` is a BaseSettings.
 All nested config blocks are plain BaseModel so they don't
 try to read from the environment independently.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -27,6 +28,7 @@ def _load_yaml(path: str) -> dict[str, Any]:
 
 
 # ── Nested config blocks (BaseModel, NOT BaseSettings) ────────────────────────
+
 
 class RateLimitConfig(BaseModel):
     requests_per_minute: int = 1000
@@ -79,6 +81,7 @@ class KafkaConfig(BaseModel):
 
 class TrainingConfig(BaseModel):
     """Hyperparameters and paths used by the training pipeline."""
+
     test_size: float = 0.15
     validation_size: float = 0.15
     seed: int = 42
@@ -87,6 +90,7 @@ class TrainingConfig(BaseModel):
 
 
 # ── Top-level Settings (the only BaseSettings) ────────────────────────────────
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -110,9 +114,7 @@ class Settings(BaseSettings):
 
     # Security — read directly from env vars
     api_keys: str = Field(default="dev-key-local", alias="API_KEYS")
-    jwt_secret: SecretStr = Field(
-        default=SecretStr("change-me-in-production"), alias="JWT_SECRET"
-    )
+    jwt_secret: SecretStr = Field(default=SecretStr("change-me-in-production"), alias="JWT_SECRET")
 
     # MLflow
     mlflow_tracking_uri: str = "http://localhost:5000"

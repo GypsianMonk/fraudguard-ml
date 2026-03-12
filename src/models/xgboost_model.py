@@ -129,7 +129,8 @@ class XGBoostFraudModel(BaseModel):
             1D array of fraud probabilities, shape (n_samples,)
         """
         if not self._is_fitted:
-            raise ModelNotFittedError("XGBoost model has not been trained yet")
+            msg = "XGBoost model has not been trained yet"
+            raise ModelNotFittedError(msg)
 
         model = self._calibrated_model if self._calibrated_model is not None else self._model
         proba = model.predict_proba(X[self._feature_names])
@@ -142,15 +143,18 @@ class XGBoostFraudModel(BaseModel):
     def get_feature_importance(self) -> dict[str, float]:
         """Return gain-based feature importance scores."""
         if not self._is_fitted or self._model is None:
-            raise ModelNotFittedError("Model not fitted")
+            msg = "Model not fitted"
+            raise ModelNotFittedError(msg)
         importance = self._model.get_booster().get_score(importance_type="gain")
         return dict(sorted(importance.items(), key=lambda x: x[1], reverse=True))
 
     def get_shap_values(self, X: pd.DataFrame) -> np.ndarray:
         """Compute SHAP values for explainability."""
         if not self._is_fitted or self._model is None:
-            raise ModelNotFittedError("Model not fitted")
+            msg = "Model not fitted"
+            raise ModelNotFittedError(msg)
         import shap
+
         explainer = shap.TreeExplainer(self._model)
         return explainer.shap_values(X[self._feature_names])
 
