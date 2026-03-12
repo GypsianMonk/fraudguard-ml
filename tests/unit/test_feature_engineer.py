@@ -85,11 +85,7 @@ class TestFraudFeatureEngineer:
     def test_all_numeric_output(self, raw_df: pd.DataFrame) -> None:
         eng = FraudFeatureEngineer(mode="training")
         result = eng.fit_transform(raw_df)
-        non_numeric = [
-            c
-            for c in result.columns
-            if result[c].dtype not in (float, int, bool, "float64", "int64", "bool")
-        ]
+        non_numeric = [c for c in result.columns if not pd.api.types.is_numeric_dtype(result[c])]
         assert len(non_numeric) == 0, f"Non-numeric columns: {non_numeric}"
 
     def test_temporal_features_present(self, raw_df: pd.DataFrame) -> None:

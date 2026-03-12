@@ -257,12 +257,6 @@ class FraudFeatureEngineer(BaseFeatureEngineer):
             .values
         )
 
-        # Category features
-        feats["merchant_category"] = df["merchant_category"].values
-        feats["payment_method"] = df.get(
-            "payment_method", pd.Series(["credit_card"] * len(df))
-        ).values
-
         return feats
 
     def _compute_geo_features(self, df: pd.DataFrame) -> pd.DataFrame:
