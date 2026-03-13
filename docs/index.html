@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FraudGuard ML — Real-Time Fraud Detection System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080b10;
+      --surface: #0d1117;
+      --border: #1c2333;
+      --accent: #00e5a0;
+      --accent2: #ff4d6d;
+      --accent3: #4d9fff;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --mono: 'Space Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* Custom cursor */
+    .cursor {
+      width: 12px; height: 12px;
+      background: var(--accent);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s, width 0.2s, height 0.2s;
+      mix-blend-mode: screen;
+    }
+    .cursor-ring {
+      width: 36px; height: 36px;
+      border: 1px solid rgba(0,229,160,0.4);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9998;
+      transform: translate(-50%, -50%);
+      transition: transform 0.15s ease-out, width 0.3s, height 0.3s;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,160,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,160,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Noise grain overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    section, nav, footer { position: relative; z-index: 1; }
+
+    /* NAV */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem 4rem;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(8,11,16,0.85);
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--accent);
+      letter-spacing: 0.15em;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .nav-logo::before {
+      content: '▸';
+      font-size: 1rem;
+      animation: blink 1.2s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    .nav-links { display: flex; gap: 2.5rem; }
+    .nav-links a {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--accent); }
+
+    .nav-cta {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 0.5rem 1.2rem;
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: background 0.2s, color 0.2s;
+    }
+    .nav-cta:hover { background: var(--accent); color: var(--bg); }
+
+    /* HERO */
+    .hero {
+      min-height: 92vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      align-items: center;
+      padding: 6rem 4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-left { max-width: 620px; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      border: 1px solid rgba(0,229,160,0.3);
+      padding: 0.35rem 0.8rem;
+      margin-bottom: 2rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      animation: fadeUp 0.6s ease both;
+    }
+    .hero-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100%{opacity:1;transform:scale(1)}
+      50%{opacity:0.4;transform:scale(0.8)}
+    }
+
+    .hero-title {
+      font-size: clamp(3rem, 6vw, 5.5rem);
+      font-weight: 800;
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.5rem;
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+
+    .hero-title .line-accent { color: var(--accent); }
+    .hero-title .line-dim { color: var(--muted); }
+
+    .hero-desc {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+      max-width: 520px;
+      animation: fadeUp 0.7s 0.2s ease both;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      animation: fadeUp 0.7s 0.3s ease both;
+    }
+
+    .btn-primary {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      padding: 0.9rem 2rem;
+      text-decoration: none;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: transform 0.15s, box-shadow 0.15s;
+      display: inline-block;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,229,160,0.3);
+    }
+
+    .btn-secondary {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.9rem 2rem;
+      text-decoration: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: border-color 0.2s, color 0.2s;
+      display: inline-block;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Terminal card */
+    .hero-right { padding-left: 4rem; animation: fadeUp 0.8s 0.2s ease both; }
+
+    .terminal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      overflow: hidden;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: #0a0f19;
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green { background: #28c840; }
+    .terminal-title {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+    }
+
+    .terminal-body { padding: 1.5rem; line-height: 2; }
+
+    .t-comment { color: #3d5a80; }
+    .t-prompt { color: var(--accent); }
+    .t-cmd { color: #e2e8f0; }
+    .t-output { color: #64748b; }
+    .t-key { color: var(--accent3); }
+    .t-val { color: #f4a261; }
+    .t-success { color: var(--accent); }
+    .t-warn { color: #fbbf24; }
+
+    .cursor-blink {
+      display: inline-block;
+      width: 8px; height: 1em;
+      background: var(--accent);
+      animation: blink 1s step-end infinite;
+      vertical-align: text-bottom;
+    }
+
+    /* STATS BAR */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat-item {
+      padding: 2.5rem 3rem;
+      border-right: 1px solid var(--border);
+      animation: fadeUp 0.6s ease both;
+    }
+    .stat-item:last-child { border-right: none; }
+
+    .stat-num {
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.03em;
+    }
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* ARCHITECTURE */
+    .arch-section {
+      padding: 7rem 4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-tag {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    .section-tag::after {
+      content: '';
+      flex: 1;
+      max-width: 60px;
+      height: 1px;
+      background: var(--accent);
+      opacity: 0.4;
+    }
+
+    .section-title {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      margin-bottom: 4rem;
+      letter-spacing: -0.02em;
+    }
+
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+
+    .arch-card {
+      background: var(--surface);
+      padding: 2rem;
+      transition: background 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .arch-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.3s;
+    }
+    .arch-card:hover { background: #111827; }
+    .arch-card:hover::before { transform: scaleX(1); }
+
+    .arch-icon {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+    .arch-card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+    .arch-card-desc {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+    .arch-tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--accent3);
+      border: 1px solid rgba(77,159,255,0.25);
+      padding: 0.2rem 0.5rem;
+      margin-top: 0.8rem;
+      letter-spacing: 0.08em;
+    }
+
+    /* STACK */
+    .stack-section {
+      padding: 7rem 4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+
+    .stack-item {
+      background: var(--surface);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      transition: background 0.2s;
+      cursor: default;
+    }
+    .stack-item:hover { background: #111827; }
+
+    .stack-logo { font-size: 1.8rem; margin-bottom: 0.5rem; display: block; }
+    .stack-name {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* PIPELINE */
+    .pipeline-section {
+      padding: 7rem 4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pipeline {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin-top: 3rem;
+      overflow-x: auto;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      min-width: 160px;
+      border: 1px solid var(--border);
+      border-right: none;
+      padding: 1.5rem;
+      position: relative;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .pipeline-step:last-child { border-right: 1px solid var(--border); }
+    .pipeline-step:hover { background: #0d1117; border-color: var(--accent); }
+
+    .pipeline-step::after {
+      content: '→';
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--accent);
+      font-size: 1rem;
+      z-index: 2;
+      background: var(--bg);
+      padding: 0 2px;
+    }
+    .pipeline-step:last-child::after { display: none; }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--accent);
+      letter-spacing: 0.15em;
+      margin-bottom: 0.5rem;
+      opacity: 0.6;
+    }
+    .step-name {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+    .step-detail {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .step-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 1rem;
+    }
+    .step-dot.green { background: var(--accent); }
+    .step-dot.blue { background: var(--accent3); }
+    .step-dot.red { background: var(--accent2); }
+
+    /* METRICS */
+    .metrics-section {
+      padding: 7rem 4rem;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6rem;
+      align-items: start;
+    }
+
+    .metric-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .metric-name {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .metric-value {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      color: var(--text);
+      font-weight: 700;
+    }
+    .metric-bar-wrap {
+      width: 120px;
+      height: 4px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .metric-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent3), var(--accent));
+      transition: width 1s ease;
+    }
+
+    /* CTA */
+    .cta-section {
+      padding: 8rem 4rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(0,229,160,0.06) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .cta-title {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 1rem;
+    }
+    .cta-sub {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 3rem;
+    }
+    .cta-buttons { display: flex; gap: 1rem; justify-content: center; }
+
+    /* FOOTER */
+    footer {
+      padding: 2rem 4rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-text {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .footer-links { display: flex; gap: 2rem; }
+    .footer-links a {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.05em;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--accent); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { display: none; }
+      .hero { grid-template-columns: 1fr; padding: 4rem 1.5rem; min-height: auto; }
+      .hero-right { padding-left: 0; margin-top: 3rem; }
+      .stats-bar { grid-template-columns: 1fr 1fr; }
+      .arch-grid { grid-template-columns: 1fr; }
+      .stack-grid { grid-template-columns: repeat(3, 1fr); }
+      .pipeline { flex-direction: column; }
+      .pipeline-step { border-right: 1px solid var(--border); border-bottom: none; }
+      .pipeline-step:last-child { border-bottom: 1px solid var(--border); }
+      .pipeline-step::after { content: '↓'; right: auto; top: auto; bottom: -14px; left: 50%; transform: translateX(-50%); }
+      .metrics-section { grid-template-columns: 1fr; gap: 3rem; padding: 4rem 1.5rem; }
+      .arch-section, .stack-section, .pipeline-section, .cta-section { padding: 5rem 1.5rem; }
+      footer { flex-direction: column; gap: 1rem; padding: 1.5rem; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="cursor-ring" id="cursorRing"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo">FRAUDGUARD_ML</a>
+    <div class="nav-links">
+      <a href="#architecture">Architecture</a>
+      <a href="#stack">Stack</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#metrics">Metrics</a>
+    </div>
+    <a href="https://github.com/GypsianMonk/fraudguard-ml" class="nav-cta">View on GitHub</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-left">
+      <div class="hero-badge">Production-Grade · MLOps · v2.1.0</div>
+      <h1 class="hero-title">
+        <span class="line-accent">Real-Time</span><br>
+        Fraud<br>
+        <span class="line-dim">Detection</span>
+      </h1>
+      <p class="hero-desc">
+        End-to-end ML system — XGBoost + PyTorch TabTransformer ensemble,
+        FastAPI inference at &lt;50ms P99, MLflow tracking, Kafka streaming,
+        Redis feature store, and full CI/CD with Docker.
+      </p>
+      <div class="hero-actions">
+        <a href="https://github.com/GypsianMonk/fraudguard-ml" class="btn-primary">GitHub Repo</a>
+        <a href="https://github.com/GypsianMonk/fraudguard-ml#quick-start" class="btn-secondary">Quick Start</a>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="terminal">
+        <div class="terminal-header">
+          <div class="dot dot-red"></div>
+          <div class="dot dot-yellow"></div>
+          <div class="dot dot-green"></div>
+          <span class="terminal-title">fraud_prediction.sh</span>
+        </div>
+        <div class="terminal-body">
+          <div><span class="t-comment"># Real-time fraud prediction</span></div>
+          <div><span class="t-prompt">$</span> <span class="t-cmd">curl -X POST /api/v1/predict \</span></div>
+          <div>&nbsp;&nbsp;<span class="t-cmd">-H "X-API-Key: $KEY" \</span></div>
+          <div>&nbsp;&nbsp;<span class="t-cmd">-d '{</span></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"transaction_id"</span><span class="t-cmd">: </span><span class="t-val">"txn_4829"</span><span class="t-cmd">,</span></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"amount"</span><span class="t-cmd">: </span><span class="t-val">4999.99</span><span class="t-cmd">,</span></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"merchant_category"</span><span class="t-cmd">: </span><span class="t-val">"electronics"</span></div>
+          <div>&nbsp;&nbsp;<span class="t-cmd">}'</span></div>
+          <br>
+          <div><span class="t-comment"># Response (23ms)</span></div>
+          <div><span class="t-output">{</span></div>
+          <div>&nbsp;&nbsp;<span class="t-key">"fraud_probability"</span><span class="t-output">: </span><span class="t-val">0.847</span><span class="t-output">,</span></div>
+          <div>&nbsp;&nbsp;<span class="t-key">"risk_tier"</span><span class="t-output">: </span><span class="t-warn">"HIGH"</span><span class="t-output">,</span></div>
+          <div>&nbsp;&nbsp;<span class="t-key">"model_version"</span><span class="t-output">: </span><span class="t-val">"v2.1.0"</span><span class="t-output">,</span></div>
+          <div>&nbsp;&nbsp;<span class="t-key">"latency_ms"</span><span class="t-output">: </span><span class="t-success">23</span></div>
+          <div><span class="t-output">}</span></div>
+          <br>
+          <div><span class="t-prompt">$</span> <span class="cursor-blink"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num">0.984</div>
+      <div class="stat-label">AUC-ROC Score</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">&lt;50ms</div>
+      <div class="stat-label">P99 Latency</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">87</div>
+      <div class="stat-label">Engineered Features</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">3×</div>
+      <div class="stat-label">Ensemble Models</div>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <section class="arch-section" id="architecture">
+    <div class="section-tag">Architecture</div>
+    <h2 class="section-title">Built for Production</h2>
+    <div class="arch-grid">
+      <div class="arch-card">
+        <span class="arch-icon">⚡</span>
+        <div class="arch-card-title">Real-Time Inference API</div>
+        <div class="arch-card-desc">FastAPI server with async request handling, dependency injection, hot model reload, and Prometheus metrics — designed for &lt;50ms P99 latency at scale.</div>
+        <span class="arch-tag">FastAPI · uvicorn · Redis</span>
+      </div>
+      <div class="arch-card">
+        <span class="arch-icon">🧠</span>
+        <div class="arch-card-title">Stacking Ensemble</div>
+        <div class="arch-card-desc">Two-stage stacking: XGBoost + PyTorch TabTransformer as base learners trained with OOF predictions, Logistic Regression meta-learner with isotonic calibration.</div>
+        <span class="arch-tag">XGBoost · PyTorch · Sklearn</span>
+      </div>
+      <div class="arch-card">
+        <span class="arch-icon">🔬</span>
+        <div class="arch-card-title">Feature Engineering</div>
+        <div class="arch-card-desc">87 features across 6 groups: temporal velocity (rolling windows 1h–7d), behavioral profiles, geo/network risk, device fingerprinting, and merchant graph signals.</div>
+        <span class="arch-tag">Pandas · NumPy · Redis</span>
+      </div>
+      <div class="arch-card">
+        <span class="arch-icon">📊</span>
+        <div class="arch-card-title">Experiment Tracking</div>
+        <div class="arch-card-desc">Full MLflow integration for params, metrics, and artifact logging. Optuna HPO with TPE sampler and Hyperband pruner. Automatic model registry promotion.</div>
+        <span class="arch-tag">MLflow · Optuna · DVC</span>
+      </div>
+      <div class="arch-card">
+        <span class="arch-icon">🌊</span>
+        <div class="arch-card-title">Streaming Pipeline</div>
+        <div class="arch-card-desc">Async Kafka consumer/producer for real-time transaction event processing. Configurable batch sizes, automatic offset commits, and dead-letter queue handling.</div>
+        <span class="arch-tag">Kafka · aiokafka · asyncio</span>
+      </div>
+      <div class="arch-card">
+        <span class="arch-icon">📡</span>
+        <div class="arch-card-title">Drift Monitoring</div>
+        <div class="arch-card-desc">Population Stability Index (PSI), Kolmogorov-Smirnov tests, and Jensen-Shannon divergence for per-feature drift detection with Prometheus metrics + alerts.</div>
+        <span class="arch-tag">Prometheus · Grafana · SciPy</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STACK -->
+  <section class="stack-section" id="stack">
+    <div class="section-tag">Tech Stack</div>
+    <h2 class="section-title">Modern ML Infrastructure</h2>
+    <div class="stack-grid">
+      <div class="stack-item"><span class="stack-logo">🐍</span><span class="stack-name">Python 3.11</span></div>
+      <div class="stack-item"><span class="stack-logo">🔥</span><span class="stack-name">PyTorch</span></div>
+      <div class="stack-item"><span class="stack-logo">⚡</span><span class="stack-name">XGBoost</span></div>
+      <div class="stack-item"><span class="stack-logo">🚀</span><span class="stack-name">FastAPI</span></div>
+      <div class="stack-item"><span class="stack-logo">📈</span><span class="stack-name">MLflow</span></div>
+      <div class="stack-item"><span class="stack-logo">🐳</span><span class="stack-name">Docker</span></div>
+      <div class="stack-item"><span class="stack-logo">📦</span><span class="stack-name">Redis</span></div>
+      <div class="stack-item"><span class="stack-logo">🌊</span><span class="stack-name">Kafka</span></div>
+      <div class="stack-item"><span class="stack-logo">📊</span><span class="stack-name">Prometheus</span></div>
+      <div class="stack-item"><span class="stack-logo">🎯</span><span class="stack-name">Optuna</span></div>
+      <div class="stack-item"><span class="stack-logo">🗄️</span><span class="stack-name">DVC</span></div>
+      <div class="stack-item"><span class="stack-logo">⚙️</span><span class="stack-name">GitHub Actions</span></div>
+    </div>
+  </section>
+
+  <!-- PIPELINE -->
+  <section class="pipeline-section" id="pipeline">
+    <div class="section-tag">Data Pipeline</div>
+    <h2 class="section-title">End-to-End ML Pipeline</h2>
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="step-num">01</div>
+        <div class="step-name">Data Ingestion</div>
+        <div class="step-detail">Batch (Parquet/CSV) + Kafka streaming. Schema validation with Great Expectations.</div>
+        <div class="step-dot blue"></div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">02</div>
+        <div class="step-name">Validation</div>
+        <div class="step-detail">Column type checks, null rates, fraud rate bounds, referential integrity.</div>
+        <div class="step-dot blue"></div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">03</div>
+        <div class="step-name">Feature Eng.</div>
+        <div class="step-detail">87 features across 6 groups. Fit on train, transform on all splits.</div>
+        <div class="step-dot blue"></div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">04</div>
+        <div class="step-name">HPO</div>
+        <div class="step-detail">Optuna 100 trials, TPE + Hyperband. CV AUC-PR objective.</div>
+        <div class="step-dot green"></div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">05</div>
+        <div class="step-name">Train</div>
+        <div class="step-detail">2-stage stacking. OOF base learners → meta-learner on OOF preds.</div>
+        <div class="step-dot green"></div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">06</div>
+        <div class="step-name">Evaluate</div>
+        <div class="step-detail">AUC-ROC, AUC-PR, KS stat, Prec@K recall, fraud catch rate.</div>
+        <div class="step-dot green"></div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">07</div>
+        <div class="step-name">Register</div>
+        <div class="step-detail">Auto-promote to Production in MLflow if AUC-PR ≥ 0.85 quality gate.</div>
+        <div class="step-dot red"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- METRICS -->
+  <section class="metrics-section" id="metrics">
+    <div>
+      <div class="section-tag">Performance</div>
+      <h2 class="section-title">Model Metrics</h2>
+      <p style="font-family:var(--mono);font-size:0.8rem;color:var(--muted);margin-top:-2rem;margin-bottom:2rem;">Held-out test set · 1M transactions · 2.2% fraud rate</p>
+      <div class="metric-row">
+        <span class="metric-name">AUC-ROC</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:98.47%"></div></div>
+        <span class="metric-value">0.9847</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">AUC-PR</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:89.12%"></div></div>
+        <span class="metric-value">0.8912</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">KS Statistic</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:81.2%"></div></div>
+        <span class="metric-value">0.812</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">Precision @ 95% Recall</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:74.3%"></div></div>
+        <span class="metric-value">0.743</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">F1 @ 0.5 Threshold</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:83.1%"></div></div>
+        <span class="metric-value">0.831</span>
+      </div>
+    </div>
+    <div>
+      <div class="section-tag">Latency</div>
+      <h2 class="section-title">System SLAs</h2>
+      <p style="font-family:var(--mono);font-size:0.8rem;color:var(--muted);margin-top:-2rem;margin-bottom:2rem;">Single-node Docker · 4 CPU · 8GB RAM</p>
+      <div class="metric-row">
+        <span class="metric-name">P50 Inference Latency</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:20%"></div></div>
+        <span class="metric-value" style="color:var(--accent)">18ms</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">P95 Inference Latency</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:30%"></div></div>
+        <span class="metric-value" style="color:var(--accent)">32ms</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">P99 Inference Latency</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:47%"></div></div>
+        <span class="metric-value" style="color:var(--accent)">47ms</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">Feature Store (Redis)</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:4%"></div></div>
+        <span class="metric-value" style="color:var(--accent)">&lt;3ms</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-name">Throughput (RPS)</span>
+        <div class="metric-bar-wrap"><div class="metric-bar" style="width:85%"></div></div>
+        <span class="metric-value">850 rps</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <h2 class="cta-title">Ready to Deploy?</h2>
+    <p class="cta-sub">Clone, generate data, and have a running fraud detection system in under 5 minutes.</p>
+    <div class="cta-buttons">
+      <a href="https://github.com/GypsianMonk/fraudguard-ml" class="btn-primary">Clone the Repo</a>
+      <a href="https://github.com/GypsianMonk/fraudguard-ml/blob/main/README.md" class="btn-secondary">Read the Docs</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-text">Built by <a href="https://github.com/GypsianMonk" style="color:var(--accent);text-decoration:none;">GypsianMonk</a> · MIT License</div>
+    <div class="footer-links">
+      <a href="https://github.com/GypsianMonk/fraudguard-ml">GitHub</a>
+      <a href="https://github.com/GypsianMonk/fraudguard-ml/blob/main/README.md">Docs</a>
+      <a href="https://github.com/GypsianMonk/fraudguard-ml/blob/main/CONTRIBUTING.md">Contribute</a>
+      <a href="https://github.com/GypsianMonk/fraudguard-ml/issues">Issues</a>
+    </div>
+  </footer>
+
+  <script>
+    // Custom cursor
+    const cursor = document.getElementById('cursor');
+    const ring = document.getElementById('cursorRing');
+    let mx = 0, my = 0, rx = 0, ry = 0;
+    document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    function animCursor() {
+      cursor.style.left = mx + 'px';
+      cursor.style.top = my + 'px';
+      rx += (mx - rx) * 0.12;
+      ry += (my - ry) * 0.12;
+      ring.style.left = rx + 'px';
+      ring.style.top = ry + 'px';
+      requestAnimationFrame(animCursor);
+    }
+    animCursor();
+
+    // Animate metric bars on scroll
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.style.width = entry.target.dataset.width || entry.target.style.width;
+        }
+      });
+    }, { threshold: 0.3 });
+
+    document.querySelectorAll('.metric-bar').forEach(bar => {
+      const w = bar.style.width;
+      bar.style.width = '0%';
+      bar.dataset.width = w;
+      observer.observe(bar);
+    });
+  </script>
+</body>
+</html>
