@@ -78,8 +78,6 @@ ignore = [
     "N803", "N806",
     # Trailing comma / string concat formatting conflicts
     "COM812", "ISC001",
-    # TYPE_CHECKING blocks are optional in this codebase
-    "TC001", "TC002", "TC003",
     # FastAPI pattern: Depends() in default args is idiomatic
     "B008",
     # abstract **kwargs and Any are intentional in interfaces
