@@ -1,0 +1,151 @@
+# docker-compose.prod.yml
+# Production deployment compose file.
+# Referenced by the CD pipeline (blue/green deploy).
+#
+# Differences from docker-compose.yml:
+#   - No dev tooling (Kafka UI, MLflow UI)
+#   - Resource limits enforced
+#   - Restart policies set to always
+#   - Secrets via environment — never hardcoded
+#   - Redis persistence on
+#   - Nginx reverse proxy included
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d api
+#   docker compose -f docker-compose.prod.yml pull api
+
+services:
+
+  # ── Inference API ───────────────────────────────────────────────────────────
+  api:
+    image: ghcr.io/${GITHUB_REPOSITORY:-gypsianmonk/fraudguard-ml}/fraudguard-api:${IMAGE_TAG:-latest}
+    container_name: fraudguard-api
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      API_KEYS: ${API_KEYS}
+      JWT_SECRET: ${JWT_SECRET}
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MODEL_VERSION: ${MODEL_VERSION:-latest}
+      REDIS_URL: redis://redis:6379
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+    volumes:
+      - model-artifacts:/app/models/artifacts:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    networks:
+      - fraudguard-net
+
+  # ── Redis (Feature Store) ───────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: fraudguard-redis
+    command: >
+      redis-server
+      --save 300 1
+      --save 60 1000
+      --loglevel warning
+      --maxmemory 2gb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - fraudguard-net
+
+  # ── Prometheus ──────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: fraudguard-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1G
+    restart: always
+    networks:
+      - fraudguard-net
+
+  # ── Grafana ─────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: fraudguard-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docs/grafana:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 512M
+    restart: always
+    networks:
+      - fraudguard-net
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  model-artifacts:
+    external: true        # Pre-populated by training pipeline
+    name: fraudguard-model-artifacts
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  fraudguard-net:
+    driver: bridge

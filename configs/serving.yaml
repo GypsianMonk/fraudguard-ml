@@ -1,0 +1,91 @@
+# configs/serving.yaml
+# Inference server configuration for all environments.
+# Override values with environment variables (ENV vars take precedence).
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4               # CPU cores - 1 for production
+  loop: "uvloop"
+  timeout_keep_alive: 30
+  backlog: 2048            # Max queued connections
+
+model:
+  name: "fraudguard-ensemble"
+  stage: "Production"      # MLflow model stage to serve
+  version: ${MODEL_VERSION:latest}
+  reload_interval_seconds: 300   # Hot-reload check interval (0 = disabled)
+  prediction_cache_ttl: 60       # Cache identical transaction predictions (seconds)
+
+inference:
+  # Decision thresholds — tune based on business requirements
+  thresholds:
+    block: 0.85            # Auto-block (CRITICAL tier)
+    review: 0.35           # Send to manual review (MEDIUM+ tier)
+    low_risk: 0.30         # Below = LOW tier, allow through
+
+  # Latency targets
+  sla:
+    p50_ms: 20
+    p95_ms: 40
+    p99_ms: 50             # SLA breach → alert
+
+  # Batch limits
+  batch:
+    max_transactions: 1000
+    max_async_wait_seconds: 300
+
+feature_store:
+  enabled: true
+  redis_url: ${REDIS_URL:redis://localhost:6379}
+  redis_db: 1
+  ttl_seconds: 3600
+  pool_size: 20
+  socket_timeout: 0.005    # 5ms max Redis wait before fallback
+
+  # Velocity feature windows (minutes) — precomputed in Redis
+  velocity_windows_minutes: [60, 360, 1440, 10080]
+
+  # Fallback behavior when Redis is unavailable
+  fallback_on_error: true  # Serve prediction without feature store features
+
+rate_limiting:
+  enabled: true
+  requests_per_minute: 1000
+  burst: 200
+
+security:
+  api_key_header: "X-API-Key"
+  api_keys: ${API_KEYS:dev-key-local}
+  require_https_in_prod: true
+  cors_origins: ${CORS_ORIGINS:*}
+
+logging:
+  level: ${LOG_LEVEL:INFO}
+  format: ${LOG_FORMAT:json}    # json (prod) | console (dev)
+  include_prediction_logs: true
+  pii_masking: true             # Mask user_id, ip_address in logs
+
+monitoring:
+  metrics_port: 9090
+  health_path: /health
+  ready_path: /ready
+  metrics_path: /metrics
+
+  # Prometheus metric labels
+  default_labels:
+    env: ${ENV:production}
+    service: fraudguard-api
+    version: ${MODEL_VERSION:unknown}
+
+  # Performance thresholds for auto-alerting
+  alert_thresholds:
+    latency_p99_ms: 200
+    error_rate_pct: 1.0
+    fraud_rate_z_score: 3.0
+
+explainability:
+  shap_enabled: true
+  shap_max_features: 8     # Top N features to include in response
+  # SHAP adds ~5ms latency — disable for strict P99 SLA environments
+  shap_on_high_risk_only: false
