@@ -138,8 +138,7 @@ class TransactionValidator:
             fraud_rate = df["is_fraud"].mean()
             if fraud_rate < 0.001:
                 warnings.append(
-                    f"Very low fraud rate: {fraud_rate:.4%}. "
-                    "Model training may be unreliable."
+                    f"Very low fraud rate: {fraud_rate:.4%}. " "Model training may be unreliable."
                 )
             elif fraud_rate > 0.20:
                 warnings.append(
