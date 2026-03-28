@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FraudGuard ML — Roadmap Dashboard</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-2: #f8f7f4;
+  --bg-3: #f1efe8;
+  --text: #1a1a1a;
+  --text-2: #5f5e5a;
+  --text-3: #888780;
+  --border: rgba(0,0,0,0.12);
+  --border-2: rgba(0,0,0,0.25);
+  --blue-50: #e6f1fb;
+  --blue-400: #378add;
+  --blue-600: #185fa5;
+  --blue-800: #0c447c;
+  --teal-50: #e1f5ee;
+  --teal-400: #1d9e75;
+  --teal-600: #0f6e56;
+  --green-50: #eaf3de;
+  --green-400: #639922;
+  --red-50: #fcebeb;
+  --red-400: #e24b4a;
+  --red-600: #a32d2d;
+  --amber-50: #faeeda;
+  --amber-400: #ba7517;
+  --amber-600: #854f0b;
+  --purple-50: #eeedfe;
+  --purple-400: #7f77dd;
+  --purple-600: #534ab7;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1c;
+    --bg-2: #252525;
+    --bg-3: #2e2e2e;
+    --text: #e8e6e0;
+    --text-2: #b4b2a9;
+    --text-3: #888780;
+    --border: rgba(255,255,255,0.10);
+    --border-2: rgba(255,255,255,0.22);
+    --blue-50: #042c53;
+    --blue-400: #85b7eb;
+    --blue-600: #b5d4f4;
+    --blue-800: #e6f1fb;
+    --teal-50: #04342c;
+    --teal-400: #5dcaa5;
+    --teal-600: #9fe1cb;
+    --green-50: #173404;
+    --green-400: #97c459;
+    --red-50: #501313;
+    --red-400: #f09595;
+    --red-600: #f7c1c1;
+    --amber-50: #412402;
+    --amber-400: #ef9f27;
+    --amber-600: #fac775;
+    --purple-50: #26215c;
+    --purple-400: #afa9ec;
+    --purple-600: #cecbf6;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.app { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+h1 { font-size: 20px; font-weight: 500; }
+h2 { font-size: 16px; font-weight: 500; margin: 1.5rem 0 0.6rem; }
+h3 { font-size: 13px; font-weight: 500; margin: 0.75rem 0 0.4rem; }
+p { color: var(--text-2); margin-bottom: 0.65rem; line-height: 1.7; }
+.header { margin-bottom: 1.25rem; }
+.header .sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.repo-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--blue-400); text-decoration: none;
+  border: 0.5px solid var(--border); border-radius: 20px;
+  padding: 3px 10px; margin-top: 6px;
+}
+.tabs {
+  display: flex; border-bottom: 0.5px solid var(--border);
+  margin-bottom: 1.5rem; overflow-x: auto; gap: 0; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 8px 13px; font-size: 13px; cursor: pointer;
+  color: var(--text-3); border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: color 0.12s;
+  background: transparent; border-left: none; border-right: none; border-top: none;
+}
+.tab:hover { color: var(--text-2); }
+.tab.active { color: var(--text); border-bottom-color: var(--blue-400); font-weight: 500; }
+.panel { display: none; }
+.panel.active { display: block; }
+.card {
+  background: var(--bg);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.9rem;
+}
+.metric-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px; margin: 1rem 0;
+}
+.metric-card {
+  background: var(--bg-2);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+}
+.metric-card .mlabel { font-size: 11px; color: var(--text-3); margin-bottom: 3px; }
+.metric-card .mvalue { font-size: 22px; font-weight: 500; color: var(--text); }
+.metric-card .mvalue.good { color: var(--teal-400); }
+.metric-card .mvalue.warn { color: var(--amber-400); }
+.metric-card .mvalue.bad { color: var(--red-400); }
+.metric-card .msub { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+.slider-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 0.6rem;
+}
+.slider-row label { font-size: 12px; color: var(--text-2); min-width: 110px; }
+.slider-row input[type=range] { flex: 1; }
+.slider-row .sval { font-size: 13px; font-weight: 500; min-width: 42px; text-align: right; color: var(--text); }
+.code-block {
+  background: var(--bg-3);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin: 0.5rem 0 0.9rem;
+  overflow-x: auto;
+}
+.code-block pre {
+  font-family: 'SF Mono','Fira Code','Consolas',monospace;
+  font-size: 11.5px;
+  color: var(--text);
+  white-space: pre;
+  line-height: 1.55;
+}
+.tag {
+  display: inline-block; font-size: 11px; padding: 2px 8px;
+  border-radius: 4px; font-weight: 500;
+}
+.tag-blue { background: var(--blue-50); color: var(--blue-800); }
+.tag-teal { background: var(--teal-50); color: var(--teal-600); }
+.tag-red { background: var(--red-50); color: var(--red-600); }
+.tag-amber { background: var(--amber-50); color: var(--amber-600); }
+.tag-purple { background: var(--purple-50); color: var(--purple-600); }
+.insight-box {
+  border-left: 3px solid var(--blue-400);
+  padding: 0.65rem 0.9rem;
+  background: var(--blue-50);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  margin: 0.75rem 0;
+}
+.insight-box p { color: var(--text-2); margin: 0; font-size: 12.5px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+@media(max-width:600px) { .two-col { grid-template-columns: 1fr; } }
+.cm-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  max-width: 260px; margin-top: 0.5rem;
+}
+.cm-cell {
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.75rem;
+  text-align: center;
+}
+.cm-cell .clabel { font-size: 10px; color: var(--text-3); margin-bottom: 3px; }
+.cm-cell .cval { font-size: 19px; font-weight: 500; }
+.cm-cell .cdesc { font-size: 10px; margin-top: 2px; }
+.cm-tp { background: var(--teal-50); }
+.cm-tp .cval { color: var(--teal-600); }
+.cm-tp .cdesc { color: var(--teal-600); }
+.cm-fp { background: var(--red-50); }
+.cm-fp .cval { color: var(--red-600); }
+.cm-fp .cdesc { color: var(--red-600); }
+.cm-fn { background: var(--amber-50); }
+.cm-fn .cval { color: var(--amber-600); }
+.cm-fn .cdesc { color: var(--amber-600); }
+.cm-tn { background: var(--teal-50); }
+.cm-tn .cval { color: var(--teal-600); }
+.cm-tn .cdesc { color: var(--teal-600); }
+.compare-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin: 0.75rem 0;
+}
+@media(max-width:520px) { .compare-grid { grid-template-columns: 1fr; } }
+.model-card {
+  border: 0.5px solid var(--border); border-radius: var(--radius-lg);
+  padding: 0.85rem; text-align: center;
+}
+.model-card.winner { border-color: var(--teal-400); border-width: 2px; }
+.model-card .mname { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+.model-badge {
+  font-size: 10px; padding: 2px 7px;
+  border-radius: 4px; margin-bottom: 7px; display: inline-block;
+}
+.model-metric {
+  display: flex; justify-content: space-between;
+  font-size: 11.5px; padding: 3px 0;
+  border-bottom: 0.5px solid var(--border);
+}
+.model-metric:last-child { border: none; }
+.model-metric .mk { color: var(--text-3); }
+.model-metric .mv { font-weight: 500; }
+.model-metric .mv.top { color: var(--teal-400); }
+.pipeline-flow {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+.pipe-step {
+  padding: 5px 10px; border-radius: 20px;
+  font-size: 11.5px; font-weight: 500;
+  border: 0.5px solid var(--border);
+}
+.pipe-arrow { color: var(--text-3); font-size: 12px; }
+.thresh-info {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+  margin: 0.9rem 0;
+}
+.th-card {
+  padding: 0.65rem; border-radius: var(--radius-md);
+  border: 0.5px solid var(--border); text-align: center;
+}
+.th-card .th-lbl { font-size: 10px; color: var(--text-3); margin-bottom: 3px; }
+.th-card .th-val { font-size: 20px; font-weight: 500; }
+.chat-container {
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.chat-messages {
+  height: 320px; overflow-y: auto;
+  padding: 1rem; background: var(--bg-2);
+  display: flex; flex-direction: column; gap: 0.65rem;
+}
+.chat-msg { display: flex; gap: 7px; align-items: flex-start; }
+.chat-msg.user { flex-direction: row-reverse; }
+.chat-msg .avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--blue-50); color: var(--blue-800);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 500; flex-shrink: 0;
+}
+.chat-msg.user .avatar { background: var(--purple-50); color: var(--purple-600); }
+.chat-bubble {
+  background: var(--bg); border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg); padding: 7px 11px;
+  font-size: 13px; max-width: 82%; color: var(--text);
+  line-height: 1.65; white-space: pre-wrap;
+}
+.chat-msg.user .chat-bubble { background: var(--blue-50); border-color: var(--blue-400); }
+.quick-asks {
+  display: flex; flex-wrap: wrap; gap: 5px; padding: 0.5rem 0.75rem;
+  border-bottom: 0.5px solid var(--border); background: var(--bg);
+}
+.quick-ask {
+  font-size: 11.5px; padding: 3px 9px; border-radius: 20px;
+  border: 0.5px solid var(--border); color: var(--text-2);
+  cursor: pointer; background: transparent;
+  transition: all 0.12s;
+}
+.quick-ask:hover { border-color: var(--blue-400); color: var(--blue-800); background: var(--blue-50); }
+.chat-input-row {
+  display: flex; gap: 7px; padding: 0.65rem;
+  border-top: 0.5px solid var(--border);
+  background: var(--bg);
+}
+.chat-input-row input {
+  flex: 1; border: 0.5px solid var(--border-2);
+  border-radius: var(--radius-md); padding: 7px 11px;
+  font-size: 13px; background: var(--bg);
+  color: var(--text); outline: none;
+  font-family: inherit;
+}
+.chat-input-row input:focus { border-color: var(--blue-400); }
+.chat-input-row button {
+  padding: 7px 14px; border-radius: var(--radius-md);
+  border: 0.5px solid var(--border-2); background: var(--bg);
+  color: var(--text); font-size: 13px; cursor: pointer;
+  font-family: inherit; transition: all 0.12s;
+}
+.chat-input-row button:hover { background: var(--blue-50); border-color: var(--blue-400); color: var(--blue-800); }
+.chat-input-row button:disabled { opacity: 0.4; cursor: default; }
+.progress-bar-track {
+  height: 4px; background: var(--bg-3); border-radius: 4px; margin-top: 7px;
+}
+.progress-bar-fill { height: 100%; border-radius: 4px; }
+code {
+  font-family: 'SF Mono','Fira Code','Consolas',monospace;
+  font-size: 12px; background: var(--bg-3);
+  padding: 1px 5px; border-radius: 4px; color: var(--text);
+}
+.section-divider {
+  border: none; border-top: 0.5px solid var(--border);
+  margin: 1.25rem 0;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="header">
+  <h1>FraudGuard ML — Roadmap dashboard</h1>
+  <div class="sub">Your path from "I can train models" to "I can build ML systems"</div>
+  <a class="repo-link" href="https://github.com/GypsianMonk/fraudguard-ml" target="_blank">↗ GypsianMonk/fraudguard-ml</a>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="metrics">Phase 1–2: Metrics</div>
+  <div class="tab" data-tab="imbalance">Phase 3: Imbalance</div>
+  <div class="tab" data-tab="models">Phase 4: Models</div>
+  <div class="tab" data-tab="system">Phase 5: System</div>
+  <div class="tab" data-tab="deploy">Phase 6: Deploy</div>
+  <div class="tab" data-tab="tutor">AI tutor ↗</div>
+</div>
+
+<!-- ── OVERVIEW ── -->
+<div class="panel active" id="panel-overview">
+<p>Your repo has the full production architecture already scaffolded. The gaps are in the core ML implementation: <code>src/training/</code>, <code>src/models/</code>, and <code>src/features/</code>. This roadmap fills those in.</p>
+
+<div class="pipeline-flow">
+  <div class="pipe-step tag-teal">Transaction</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-blue">Feature engineering</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-blue">Model</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-amber">Probability</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-purple">Decision threshold</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-teal">Block / allow</div>
+</div>
+
+<h2>Phase progress</h2>
+<div style="display:flex;flex-direction:column;gap:11px;">
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;font-weight:500;">Phase 1–2 — Foundations & metrics</span>
+      <span class="tag tag-blue">Start here</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-3);margin-top:2px;">Confusion matrix, precision/recall/F1, ROC-AUC, StratifiedKFold</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" style="width:20%;background:var(--blue-400);"></div></div>
+  </div>
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;font-weight:500;">Phase 3 — Imbalance handling</span>
+      <span class="tag tag-amber">Critical</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-3);margin-top:2px;">SMOTE inside CV, class_weight='balanced', undersampling</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" style="width:10%;background:var(--amber-400);"></div></div>
+  </div>
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;font-weight:500;">Phase 4 — Model engineering</span>
+      <span class="tag tag-purple">Important</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-3);margin-top:2px;">LR baseline → Random Forest → XGBoost. Compare on AUC-PR, not accuracy.</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" style="width:15%;background:var(--purple-400);"></div></div>
+  </div>
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;font-weight:500;">Phase 5 — System thinking</span>
+      <span class="tag tag-amber">Your gap</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-3);margin-top:2px;">Threshold tuning, real-time vs batch, latency tradeoffs</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" style="width:5%;background:var(--amber-400);"></div></div>
+  </div>
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;font-weight:500;">Phase 6 — Deployment</span>
+      <span class="tag tag-teal">Differentiator</span>
+    </div>
+    <div style="font-size:12px;color:var(--text-3);margin-top:2px;">FastAPI /predict, Docker Compose, model registry — scaffolded in src/api/</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" style="width:30%;background:var(--teal-400);"></div></div>
+  </div>
+</div>
+
+<div class="insight-box" style="margin-top:1rem;">
+  <p>Your repo already has: XGBoost ensemble, FastAPI /predict, MLflow tracking, Redis feature store, Prometheus monitoring, DVC. The gap is filling in the actual ML logic in <code>src/training/trainer.py</code>, <code>src/models/xgboost_model.py</code>, and <code>src/features/engineer.py</code>.</p>
+</div>
+
+<h2>7-day sprint</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:7px;margin-top:0.5rem;">
+  <div style="padding:0.65rem;border:0.5px solid var(--border);border-radius:var(--radius-md);text-align:center;">
+    <div style="font-size:11px;color:var(--text-3);">Day 1–2</div>
+    <div style="font-size:12px;font-weight:500;margin-top:3px;color:var(--text);">Metrics deep dive</div>
+  </div>
+  <div style="padding:0.65rem;border:0.5px solid var(--border);border-radius:var(--radius-md);text-align:center;">
+    <div style="font-size:11px;color:var(--text-3);">Day 3</div>
+    <div style="font-size:12px;font-weight:500;margin-top:3px;color:var(--text);">SMOTE + weights</div>
+  </div>
+  <div style="padding:0.65rem;border:0.5px solid var(--border);border-radius:var(--radius-md);text-align:center;">
+    <div style="font-size:11px;color:var(--text-3);">Day 4</div>
+    <div style="font-size:12px;font-weight:500;margin-top:3px;color:var(--text);">3 models compare</div>
+  </div>
+  <div style="padding:0.65rem;border:0.5px solid var(--border);border-radius:var(--radius-md);text-align:center;">
+    <div style="font-size:11px;color:var(--text-3);">Day 5</div>
+    <div style="font-size:12px;font-weight:500;margin-top:3px;color:var(--text);">Threshold tuning</div>
+  </div>
+  <div style="padding:0.65rem;border:0.5px solid var(--border);border-radius:var(--radius-md);text-align:center;">
+    <div style="font-size:11px;color:var(--text-3);">Day 6</div>
+    <div style="font-size:12px;font-weight:500;margin-top:3px;color:var(--text);">FastAPI endpoint</div>
+  </div>
+  <div style="padding:0.65rem;border:0.5px solid var(--border);border-radius:var(--radius-md);text-align:center;">
+    <div style="font-size:11px;color:var(--text-3);">Day 7</div>
+    <div style="font-size:12px;font-weight:500;margin-top:3px;color:var(--text);">README + metrics</div>
+  </div>
+</div>
+</div>
+
+<!-- ── METRICS ── -->
+<div class="panel" id="panel-metrics">
+<p>Accuracy is useless in fraud detection. If 0.1% of transactions are fraud, a model that always predicts "not fraud" gets 99.9% accuracy — and catches zero fraud. Use these sliders to feel why.</p>
+
+<h2>Interactive confusion matrix</h2>
+<div class="two-col">
+<div>
+  <div class="slider-row">
+    <label>True positives (TP)</label>
+    <input type="range" min="0" max="500" value="420" id="s-tp" oninput="updateCM()">
+    <span class="sval" id="v-tp">420</span>
+  </div>
+  <div class="slider-row">
+    <label>False positives (FP)</label>
+    <input type="range" min="0" max="2000" value="300" id="s-fp" oninput="updateCM()">
+    <span class="sval" id="v-fp">300</span>
+  </div>
+  <div class="slider-row">
+    <label>False negatives (FN)</label>
+    <input type="range" min="0" max="500" value="80" id="s-fn" oninput="updateCM()">
+    <span class="sval" id="v-fn">80</span>
+  </div>
+  <div class="slider-row">
+    <label>True negatives (TN)</label>
+    <input type="range" min="0" max="50000" value="49200" id="s-tn" oninput="updateCM()">
+    <span class="sval" id="v-tn">49200</span>
+  </div>
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="mlabel">Precision</div>
+      <div class="mvalue" id="m-precision">58.3%</div>
+      <div class="msub">TP / (TP+FP)</div>
+    </div>
+    <div class="metric-card">
+      <div class="mlabel">Recall</div>
+      <div class="mvalue" id="m-recall">84.0%</div>
+      <div class="msub">TP / (TP+FN)</div>
+    </div>
+    <div class="metric-card">
+      <div class="mlabel">F1 score</div>
+      <div class="mvalue" id="m-f1">68.9%</div>
+      <div class="msub">Harmonic mean</div>
+    </div>
+    <div class="metric-card">
+      <div class="mlabel">Accuracy</div>
+      <div class="mvalue warn" id="m-accuracy">99.2%</div>
+      <div class="msub">Misleading !</div>
+    </div>
+  </div>
+</div>
+<div>
+  <h3>Matrix</h3>
+  <div class="cm-grid">
+    <div class="cm-cell cm-tp">
+      <div class="clabel">True positive</div>
+      <div class="cval" id="cm-tp">420</div>
+      <div class="cdesc">Fraud caught ✓</div>
+    </div>
+    <div class="cm-cell cm-fp">
+      <div class="clabel">False positive</div>
+      <div class="cval" id="cm-fp">300</div>
+      <div class="cdesc">False alarm ✗</div>
+    </div>
+    <div class="cm-cell cm-fn">
+      <div class="clabel">False negative</div>
+      <div class="cval" id="cm-fn">80</div>
+      <div class="cdesc">Missed fraud ✗</div>
+    </div>
+    <div class="cm-cell cm-tn">
+      <div class="clabel">True negative</div>
+      <div class="cval" id="cm-tn">49200</div>
+      <div class="cdesc">Correct clear ✓</div>
+    </div>
+  </div>
+  <div class="insight-box" style="margin-top:0.9rem;">
+    <p id="insight-text">High recall means you catch most fraud. High precision means few false alarms. You can't maximize both — this is the precision-recall tradeoff.</p>
+  </div>
+</div>
+</div>
+
+<hr class="section-divider">
+<h2>ROC curve (AUC-ROC)</h2>
+<div style="position:relative;width:100%;height:250px;">
+  <canvas id="roc-chart"></canvas>
+</div>
+
+<hr class="section-divider">
+<h2>Code for your evaluator.py</h2>
+<div class="two-col">
+<div class="card">
+  <h3>src/training/evaluator.py</h3>
+  <div class="code-block"><pre>from sklearn.metrics import (
+    classification_report,
+    roc_auc_score,
+    average_precision_score,
+)
+
+def evaluate(y_true, y_pred, y_prob):
+    """
+    NEVER use accuracy for fraud.
+    Use: precision, recall, F1, AUC-PR.
+    """
+    print(classification_report(
+        y_true, y_pred,
+        target_names=['legit', 'fraud']
+    ))
+    auc_roc = roc_auc_score(y_true, y_prob)
+    auc_pr  = average_precision_score(y_true, y_prob)
+    print(f"AUC-ROC : {auc_roc:.4f}")
+    print(f"AUC-PR  : {auc_pr:.4f}  ← more important!")
+    return {"auc_roc": auc_roc, "auc_pr": auc_pr}</pre></div>
+</div>
+<div class="card">
+  <h3>Proper stratified split</h3>
+  <div class="code-block"><pre>from sklearn.model_selection import StratifiedKFold
+
+# WRONG: random split loses fraud ratio
+# X_train, X_test = train_test_split(X, y)
+
+# RIGHT: preserve fraud % in every fold
+cv = StratifiedKFold(
+    n_splits=5, shuffle=True, random_state=42
+)
+for fold, (tr, val) in enumerate(cv.split(X, y)):
+    X_tr, y_tr = X[tr], y[tr]
+    # Each fold: same fraud rate
+    print(f"Fold {fold} fraud rate: "
+          f"{y_tr.mean():.3%}")</pre></div>
+</div>
+</div>
+</div>
+
+<!-- ── IMBALANCE ── -->
+<div class="panel" id="panel-imbalance">
+<p>Fraud datasets are 0.1–1% fraud. Training on raw imbalanced data makes the model biased toward "not fraud." You have three tools — and the right choice depends on context.</p>
+
+<div class="compare-grid">
+  <div class="model-card">
+    <div class="mname">SMOTE</div>
+    <div class="model-badge tag-blue">Oversample minority</div>
+    <div class="model-metric"><span class="mk">What</span><span class="mv">Creates synthetic fraud rows</span></div>
+    <div class="model-metric"><span class="mk">When</span><span class="mv">Small dataset, inside CV</span></div>
+    <div class="model-metric"><span class="mk">Risk</span><span class="mv">Data leakage if done wrong</span></div>
+    <div class="model-metric"><span class="mk">Code</span><span class="mv">imblearn.pipeline</span></div>
+  </div>
+  <div class="model-card winner">
+    <div class="mname">class_weight</div>
+    <div class="model-badge" style="background:var(--teal-50);color:var(--teal-600);">Best default</div>
+    <div class="model-metric"><span class="mk">What</span><span class="mv">Penalizes missing fraud more</span></div>
+    <div class="model-metric"><span class="mk">When</span><span class="mv">Always try this first</span></div>
+    <div class="model-metric"><span class="mk">Risk</span><span class="mv">Almost none</span></div>
+    <div class="model-metric"><span class="mk">Code</span><span class="mv">class_weight='balanced'</span></div>
+  </div>
+  <div class="model-card">
+    <div class="mname">Undersample</div>
+    <div class="model-badge" style="background:var(--amber-50);color:var(--amber-600);">Use carefully</div>
+    <div class="model-metric"><span class="mk">What</span><span class="mv">Removes majority samples</span></div>
+    <div class="model-metric"><span class="mk">When</span><span class="mv">Huge dataset, fast training</span></div>
+    <div class="model-metric"><span class="mk">Risk</span><span class="mv">Loses real patterns</span></div>
+    <div class="model-metric"><span class="mk">Code</span><span class="mv">RandomUnderSampler</span></div>
+  </div>
+</div>
+
+<div class="insight-box">
+  <p>Decision rule: Start with <code>class_weight='balanced'</code>. If recall is still too low AND you have &lt;100k samples, add SMOTE inside a pipeline. Never SMOTE before your train/test split — that's data leakage.</p>
+</div>
+
+<h2>The right way — SMOTE inside CV</h2>
+<div class="card">
+  <h3>src/training/trainer.py</h3>
+  <div class="code-block"><pre>from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import average_precision_score
+import xgboost as xgb
+
+# WRONG: leaks test data into synthetic samples
+# X_res, y_res = SMOTE().fit_resample(X, y)
+# X_train, X_test = train_test_split(X_res, y_res)
+
+# RIGHT: pipeline applies SMOTE per fold only
+pipeline = ImbPipeline([
+    ('scaler', StandardScaler()),
+    ('smote', SMOTE(
+        sampling_strategy=0.1,  # fraud → 10% of total
+        random_state=42
+    )),
+    ('model', xgb.XGBClassifier(
+        scale_pos_weight=99,   # fallback weight too
+        eval_metric='aucpr',
+        random_state=42
+    ))
+])
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = []
+for fold, (tr_idx, val_idx) in enumerate(cv.split(X, y)):
+    pipeline.fit(X[tr_idx], y[tr_idx])
+    # SMOTE only saw X[tr_idx] — no leakage ✓
+    probs = pipeline.predict_proba(X[val_idx])[:,1]
+    score = average_precision_score(y[val_idx], probs)
+    scores.append(score)
+    print(f"Fold {fold} AUC-PR: {score:.4f}")
+
+print(f"Mean AUC-PR: {sum(scores)/len(scores):.4f}")</pre></div>
+</div>
+
+<div class="card">
+  <h3>class_weight approach (simpler, often just as good)</h3>
+  <div class="code-block"><pre>import xgboost as xgb
+from sklearn.utils.class_weight import compute_class_weight
+import numpy as np
+
+# Auto-compute from your actual data distribution
+weights = compute_class_weight(
+    'balanced', classes=np.array([0,1]), y=y_train
+)
+# e.g. [0.505, 49.5] for 1% fraud rate
+
+model = xgb.XGBClassifier(
+    scale_pos_weight=weights[1]/weights[0],
+    n_estimators=500,
+    learning_rate=0.05,
+    max_depth=6,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    eval_metric=['aucpr', 'auc'],
+    early_stopping_rounds=50,
+    random_state=42
+)
+
+model.fit(
+    X_train, y_train,
+    eval_set=[(X_val, y_val)],
+    verbose=100  # watch for overfitting
+)</pre></div>
+</div>
+</div>
+
+<!-- ── MODELS ── -->
+<div class="panel" id="panel-models">
+<p>Train all three, compare honestly. Never compare on accuracy. The correct metrics are AUC-PR (primary), recall, and precision at your target threshold.</p>
+
+<div style="position:relative;width:100%;height:260px;">
+  <canvas id="model-chart"></canvas>
+</div>
+
+<div class="compare-grid" style="margin-top:1rem;">
+  <div class="model-card">
+    <div class="mname">Logistic regression</div>
+    <div class="model-badge tag-blue">Baseline</div>
+    <div class="model-metric"><span class="mk">AUC-ROC</span><span class="mv">0.921</span></div>
+    <div class="model-metric"><span class="mk">AUC-PR</span><span class="mv">0.742</span></div>
+    <div class="model-metric"><span class="mk">Recall</span><span class="mv">0.714</span></div>
+    <div class="model-metric"><span class="mk">Precision</span><span class="mv">0.681</span></div>
+    <div class="model-metric"><span class="mk">Train time</span><span class="mv top">~2s</span></div>
+  </div>
+  <div class="model-card">
+    <div class="mname">Random forest</div>
+    <div class="model-badge tag-purple">Solid</div>
+    <div class="model-metric"><span class="mk">AUC-ROC</span><span class="mv">0.961</span></div>
+    <div class="model-metric"><span class="mk">AUC-PR</span><span class="mv">0.831</span></div>
+    <div class="model-metric"><span class="mk">Recall</span><span class="mv">0.782</span></div>
+    <div class="model-metric"><span class="mk">Precision</span><span class="mv">0.756</span></div>
+    <div class="model-metric"><span class="mk">Train time</span><span class="mv">~45s</span></div>
+  </div>
+  <div class="model-card winner">
+    <div class="mname">XGBoost</div>
+    <div class="model-badge" style="background:var(--teal-50);color:var(--teal-600);">Winner</div>
+    <div class="model-metric"><span class="mk">AUC-ROC</span><span class="mv top">0.984</span></div>
+    <div class="model-metric"><span class="mk">AUC-PR</span><span class="mv top">0.891</span></div>
+    <div class="model-metric"><span class="mk">Recall</span><span class="mv top">0.840</span></div>
+    <div class="model-metric"><span class="mk">Precision</span><span class="mv top">0.831</span></div>
+    <div class="model-metric"><span class="mk">Train time</span><span class="mv">~18s</span></div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem;">
+  <h3>src/training/trainer.py — compare all three</h3>
+  <div class="code-block"><pre>from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (
+    roc_auc_score, average_precision_score,
+    recall_score, precision_score
+)
+import xgboost as xgb
+import pandas as pd
+
+MODELS = {
+    "logistic_regression": LogisticRegression(
+        class_weight='balanced', max_iter=1000, C=0.1
+    ),
+    "random_forest": RandomForestClassifier(
+        n_estimators=200, class_weight='balanced',
+        max_depth=8, random_state=42, n_jobs=-1
+    ),
+    "xgboost": xgb.XGBClassifier(
+        scale_pos_weight=99, n_estimators=500,
+        learning_rate=0.05, max_depth=6,
+        eval_metric='aucpr', random_state=42
+    )
+}
+
+results = []
+for name, model in MODELS.items():
+    model.fit(X_train, y_train)
+    y_prob = model.predict_proba(X_test)[:, 1]
+    y_pred = (y_prob >= 0.5).astype(int)
+    results.append({
+        "model":     name,
+        "auc_roc":   roc_auc_score(y_test, y_prob),
+        "auc_pr":    average_precision_score(y_test, y_prob),
+        "recall":    recall_score(y_test, y_pred),
+        "precision": precision_score(y_test, y_pred),
+    })
+
+# Sort by AUC-PR — best metric for imbalanced data
+df = pd.DataFrame(results).sort_values("auc_pr", ascending=False)
+print(df.to_string(index=False))</pre></div>
+</div>
+</div>
+
+<!-- ── SYSTEM ── -->
+<div class="panel" id="panel-system">
+<p>The model outputs a probability. You choose the threshold that converts it to "block" or "allow." This is a business decision, not just an ML decision — and it's your biggest gap.</p>
+
+<h2>Threshold tuner</h2>
+<p>Drag the threshold. Notice how precision and recall move in opposite directions.</p>
+
+<div class="slider-row">
+  <label>Decision threshold</label>
+  <input type="range" min="1" max="99" value="50" id="s-thresh" oninput="updateThreshold()">
+  <span class="sval" id="v-thresh">0.50</span>
+</div>
+
+<div class="thresh-info">
+  <div class="th-card">
+    <div class="th-lbl">Precision</div>
+    <div class="th-val" id="th-prec">58%</div>
+  </div>
+  <div class="th-card">
+    <div class="th-lbl">Recall</div>
+    <div class="th-val" id="th-rec">84%</div>
+  </div>
+  <div class="th-card">
+    <div class="th-lbl">False alarms / 1k txns</div>
+    <div class="th-val" id="th-fp">42</div>
+  </div>
+</div>
+
+<div style="position:relative;width:100%;height:220px;margin:0.75rem 0;">
+  <canvas id="thresh-chart"></canvas>
+</div>
+
+<div class="insight-box" id="thresh-insight">
+  <p id="thresh-insight-text">At threshold 0.50: balanced tradeoff. For fraud detection, consider lowering to 0.30–0.40 to increase recall at the cost of more false alarms.</p>
+</div>
+
+<div class="two-col" style="margin-top:1rem;">
+<div class="card">
+  <h3>Threshold tuning code</h3>
+  <div class="code-block"><pre>import numpy as np
+from sklearn.metrics import precision_recall_curve
+
+def find_threshold(y_true, y_prob, target_recall=0.90):
+    """
+    Find lowest threshold that hits 90% recall.
+    In fraud: catching 90% of fraud is usually
+    the minimum requirement.
+    """
+    precision, recall, thresholds = \
+        precision_recall_curve(y_true, y_prob)
+
+    # Find all thresholds at target recall
+    valid = thresholds[recall[:-1] >= target_recall]
+
+    if len(valid) == 0:
+        return 0.10  # can't hit target, use low threshold
+
+    # Highest threshold = best precision at that recall
+    optimal = valid.max()
+
+    idx = np.argmin(np.abs(thresholds - optimal))
+    print(f"Threshold : {optimal:.3f}")
+    print(f"Precision : {precision[idx]:.3f}")
+    print(f"Recall    : {recall[idx]:.3f}")
+    return optimal</pre></div>
+</div>
+<div class="card">
+  <h3>Real-time vs batch</h3>
+  <div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:7px;">
+    <div style="padding:0.65rem;border:0.5px solid var(--border);border-radius:var(--radius-md);">
+      <div style="font-size:12px;font-weight:500;color:var(--teal-600);">Real-time (your /predict)</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:3px;">Target: &lt;50ms P99. Pre-compute features in Redis. Tradeoff: velocity features need async lookups.</div>
+    </div>
+    <div style="padding:0.65rem;border:0.5px solid var(--border);border-radius:var(--radius-md);">
+      <div style="font-size:12px;font-weight:500;color:var(--blue-600);">Batch (/predict/batch)</div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:3px;">End-of-day risk runs. All features available including graph features. Use <code>async: true</code> in your API. No latency budget.</div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ── DEPLOY ── -->
+<div class="panel" id="panel-deploy">
+<p>Your <code>src/api/</code> is already scaffolded. Fill in these files and your model is deployed. Run <code>make serve</code> to start everything.</p>
+
+<div class="pipeline-flow">
+  <div class="pipe-step tag-blue">POST /predict</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-teal">Validate schema</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-purple">Extract features</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-amber">predict_proba()</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-teal">Apply threshold</div><span class="pipe-arrow">→</span>
+  <div class="pipe-step tag-blue">Return decision</div>
+</div>
+
+<div class="card">
+  <h3>src/api/routes/predict.py — complete implementation</h3>
+  <div class="code-block"><pre>from fastapi import APIRouter, Depends, HTTPException
+from src.core.schemas import TransactionRequest, PredictionResponse
+from src.features.engineer import FeatureEngineer
+from src.models.registry import ModelRegistry
+import time, uuid
+
+router = APIRouter()
+
+@router.post("/predict", response_model=PredictionResponse)
+async def predict(
+    transaction: TransactionRequest,
+    model_registry: ModelRegistry = Depends(),
+    feature_eng: FeatureEngineer = Depends()
+):
+    start_ms = time.perf_counter() * 1000
+
+    # 1. Extract features from Redis feature store
+    try:
+        features = await feature_eng.extract(transaction)
+    except Exception as e:
+        raise HTTPException(502, f"Feature extraction failed: {e}")
+
+    # 2. Get current production model from MLflow registry
+    model = model_registry.get_production_model()
+
+    # 3. Fraud probability
+    fraud_prob = float(
+        model.predict_proba(features.reshape(1, -1))[0, 1]
+    )
+
+    # 4. Apply threshold (tune per business need — see Phase 5)
+    FRAUD_THRESHOLD = 0.35  # targets ~90% recall
+    is_fraud = fraud_prob >= FRAUD_THRESHOLD
+
+    # 5. Risk tier
+    risk_tier = (
+        "HIGH"   if fraud_prob >= 0.70 else
+        "MEDIUM" if fraud_prob >= 0.35 else
+        "LOW"
+    )
+
+    latency = time.perf_counter() * 1000 - start_ms
+
+    return PredictionResponse(
+        transaction_id=transaction.transaction_id,
+        fraud_probability=round(fraud_prob, 4),
+        fraud_label=is_fraud,
+        risk_tier=risk_tier,
+        model_version=model.version,
+        latency_ms=round(latency, 1),
+        decision_id=f"dec_{uuid.uuid4().hex[:8]}"
+    )</pre></div>
+</div>
+
+<div class="two-col">
+<div class="card">
+  <h3>src/core/schemas.py</h3>
+  <div class="code-block"><pre>from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Optional
+
+class TransactionRequest(BaseModel):
+    transaction_id: str
+    user_id: str
+    amount: float = Field(..., gt=0)
+    merchant_id: str
+    merchant_category: str
+    timestamp: datetime
+    currency: str = "USD"
+    device_fingerprint: Optional[str] = None
+    ip_address: Optional[str] = None
+    card_present: bool = False
+    payment_method: str
+
+class PredictionResponse(BaseModel):
+    transaction_id: str
+    fraud_probability: float
+    fraud_label: bool
+    risk_tier: str  # LOW | MEDIUM | HIGH
+    model_version: str
+    latency_ms: float
+    decision_id: str</pre></div>
+</div>
+<div class="card">
+  <h3>Quick test after make serve</h3>
+  <div class="code-block"><pre>curl -X POST \
+  http://localhost:8000/api/v1/predict \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-key-local" \
+  -d '{
+    "transaction_id": "test_001",
+    "user_id": "usr_12345",
+    "amount": 4999.99,
+    "merchant_id": "mrc_elec_01",
+    "merchant_category": "electronics",
+    "timestamp": "2024-01-15T03:22:00Z",
+    "currency": "USD",
+    "device_fingerprint": "fp_new",
+    "ip_address": "45.33.32.156",
+    "card_present": false,
+    "payment_method": "credit_card"
+  }'
+
+# Expected:
+# {
+#   "fraud_probability": 0.847,
+#   "fraud_label": true,
+#   "risk_tier": "HIGH",
+#   "latency_ms": 23.1
+# }</pre></div>
+</div>
+</div>
+</div>
+
+<!-- ── AI TUTOR ── -->
+<div class="panel" id="panel-tutor">
+<p>Ask anything about your FraudGuard ML project. This tutor knows your repo structure, the 6-phase roadmap, and production fraud detection best practices.</p>
+
+<div class="chat-container">
+  <div class="quick-asks">
+    <button class="quick-ask" onclick="quickAsk('Why is accuracy useless in fraud detection?')">Why accuracy fails ↗</button>
+    <button class="quick-ask" onclick="quickAsk('When should I use SMOTE vs class_weight? Be specific.')">SMOTE vs class_weight ↗</button>
+    <button class="quick-ask" onclick="quickAsk('Write the complete src/features/engineer.py for my FraudGuard ML project')">Feature engineer code ↗</button>
+    <button class="quick-ask" onclick="quickAsk('What fraud detection threshold should I set? How do I decide?')">Best threshold ↗</button>
+    <button class="quick-ask" onclick="quickAsk('How do I add MLflow tracking to my trainer.py? Show full code.')">MLflow tracking ↗</button>
+    <button class="quick-ask" onclick="quickAsk('What is AUC-PR and why is it better than AUC-ROC for fraud?')">AUC-PR explained ↗</button>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-msg">
+      <div class="avatar">AI</div>
+      <div class="chat-bubble">Hi — I'm your FraudGuard ML mentor. I know your repo at github.com/GypsianMonk/fraudguard-ml: the FastAPI inference server, XGBoost ensemble, Redis feature store, MLflow tracking, and DVC pipeline.
+
+Ask me anything: code for specific files in src/, why certain metrics matter, how to implement any phase, or debugging help.
+
+What are you working on today?</div>
+    </div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Ask about your FraudGuard project..."
+           onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage();}">
+    <button id="send-btn" onclick="sendMessage()">Send ↗</button>
+  </div>
+</div>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+var charts = {};
+
+// ── Tab switching ──
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    var name = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    tab.classList.add('active');
+    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'metrics' && !charts.roc) buildROCChart();
+    if (name === 'models' && !charts.model) buildModelChart();
+    if (name === 'system' && !charts.thresh) buildThreshChart();
+  });
+});
+
+// ── Confusion matrix ──
+function updateCM() {
+  var tp = +document.getElementById('s-tp').value;
+  var fp = +document.getElementById('s-fp').value;
+  var fn = +document.getElementById('s-fn').value;
+  var tn = +document.getElementById('s-tn').value;
+
+  document.getElementById('v-tp').textContent = tp;
+  document.getElementById('v-fp').textContent = fp;
+  document.getElementById('v-fn').textContent = fn;
+  document.getElementById('v-tn').textContent = tn;
+  document.getElementById('cm-tp').textContent = tp;
+  document.getElementById('cm-fp').textContent = fp;
+  document.getElementById('cm-fn').textContent = fn;
+  document.getElementById('cm-tn').textContent = tn;
+
+  var total = tp + fp + fn + tn;
+  var precision = tp + fp > 0 ? tp / (tp + fp) : 0;
+  var recall    = tp + fn > 0 ? tp / (tp + fn) : 0;
+  var f1        = precision + recall > 0 ? 2 * precision * recall / (precision + recall) : 0;
+  var acc       = total > 0 ? (tp + tn) / total : 0;
+
+  function pct(v) { return (v * 100).toFixed(1) + '%'; }
+
+  document.getElementById('m-precision').textContent = pct(precision);
+  document.getElementById('m-recall').textContent    = pct(recall);
+  document.getElementById('m-f1').textContent        = pct(f1);
+  document.getElementById('m-accuracy').textContent  = pct(acc);
+
+  var pEl = document.getElementById('m-precision');
+  pEl.className = 'mvalue ' + (precision > 0.7 ? 'good' : precision < 0.4 ? 'bad' : '');
+  var rEl = document.getElementById('m-recall');
+  rEl.className = 'mvalue ' + (recall > 0.8 ? 'good' : recall < 0.5 ? 'bad' : '');
+
+  var iEl = document.getElementById('insight-text');
+  if (recall > 0.9 && precision < 0.4) {
+    iEl.textContent = 'Very high recall but low precision: you catch almost all fraud but generate many false alarms. Typical for fraud — this tradeoff is usually acceptable. Raise threshold to improve precision.';
+  } else if (precision > 0.8 && recall < 0.6) {
+    iEl.textContent = 'High precision but low recall: few false alarms, but you miss a lot of fraud. Lower your decision threshold to catch more fraud.';
+  } else if (recall > 0.8 && precision > 0.7) {
+    iEl.textContent = 'Great balance. In production fraud detection, recall > 0.85 is the standard target. This would be a solid production model.';
+  } else {
+    iEl.textContent = 'Notice the accuracy metric: ' + pct(acc) + ' sounds great but is meaningless. If you always predict "not fraud" you\'d also get ~99% accuracy while catching nothing.';
+  }
+}
+
+// ── ROC Chart ──
+function buildROCChart() {
+  var ctx = document.getElementById('roc-chart').getContext('2d');
+  var rocPts = [
+    {x:0,y:0},{x:0.002,y:0.45},{x:0.005,y:0.62},{x:0.01,y:0.72},
+    {x:0.02,y:0.80},{x:0.04,y:0.87},{x:0.07,y:0.91},{x:0.12,y:0.94},
+    {x:0.20,y:0.965},{x:0.35,y:0.98},{x:0.50,y:0.989},{x:0.70,y:0.994},{x:1.0,y:1.0}
+  ];
+  charts.roc = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'XGBoost (AUC=0.984)',
+          data: rocPts,
+          borderColor: '#185fa5',
+          backgroundColor: 'rgba(55,138,221,0.07)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0
+        },
+        {
+          label: 'Random chance',
+          data: [{x:0,y:0},{x:1,y:1}],
+          borderColor: '#888780',
+          borderWidth: 1.5,
+          borderDash: [4,4],
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          type: 'linear', min: 0, max: 1,
+          title: { display: true, text: 'False positive rate', color: '#888780', font: { size: 11 } },
+          ticks: { color: '#888780', font: { size: 10 }, stepSize: 0.25 }
+        },
+        y: {
+          min: 0, max: 1.02,
+          title: { display: true, text: 'True positive rate (recall)', color: '#888780', font: { size: 11 } },
+          ticks: { color: '#888780', font: { size: 10 }, stepSize: 0.25 }
+        }
+      }
+    }
+  });
+}
+
+// ── Model chart ──
+function buildModelChart() {
+  var ctx = document.getElementById('model-chart').getContext('2d');
+  charts.model = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['AUC-ROC', 'AUC-PR', 'Recall', 'Precision'],
+      datasets: [
+        { label: 'Logistic Regression', data: [0.921, 0.742, 0.714, 0.681],
+          backgroundColor: '#B5D4F4', borderRadius: 4 },
+        { label: 'Random Forest',       data: [0.961, 0.831, 0.782, 0.756],
+          backgroundColor: '#AFA9EC', borderRadius: 4 },
+        { label: 'XGBoost',             data: [0.984, 0.891, 0.840, 0.831],
+          backgroundColor: '#5DCAA5', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888780', font: { size: 11 } } },
+        y: {
+          min: 0.6, max: 1.0,
+          ticks: { color: '#888780', font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+// ── Threshold chart ──
+function buildThreshChart() {
+  var ctx = document.getElementById('thresh-chart').getContext('2d');
+  var thresholds = [];
+  for (var i = 1; i <= 99; i++) thresholds.push(i / 100);
+
+  function simPrec(t) { return Math.min(0.98, 0.18 + 0.81 * Math.pow(t, 0.38)); }
+  function simRec(t)  { return Math.max(0.01, 0.985 * Math.exp(-3.6 * t)); }
+
+  charts.thresh = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: thresholds.map(function(t) { return t.toFixed(2); }),
+      datasets: [
+        {
+          label: 'Precision',
+          data: thresholds.map(simPrec),
+          borderColor: '#185fa5', borderWidth: 2,
+          pointRadius: 0, fill: false
+        },
+        {
+          label: 'Recall',
+          data: thresholds.map(simRec),
+          borderColor: '#1d9e75', borderWidth: 2,
+          pointRadius: 0, fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          title: { display: true, text: 'Threshold', color: '#888780', font: { size: 11 } },
+          ticks: { color: '#888780', font: { size: 10 }, maxTicksLimit: 10, autoSkip: true }
+        },
+        y: {
+          min: 0, max: 1.05,
+          ticks: { color: '#888780', font: { size: 10 } }
+        }
+      }
+    }
+  });
+
+  updateThreshold();
+}
+
+function updateThreshold() {
+  var t = document.getElementById('s-thresh').value / 100;
+  document.getElementById('v-thresh').textContent = t.toFixed(2);
+
+  function simPrec(t) { return Math.min(0.98, 0.18 + 0.81 * Math.pow(t, 0.38)); }
+  function simRec(t)  { return Math.max(0.01, 0.985 * Math.exp(-3.6 * t)); }
+
+  var prec = simPrec(t);
+  var rec  = simRec(t);
+  var fpPer1k = Math.round(((1 - prec) / prec) * rec * 500);
+
+  document.getElementById('th-prec').textContent = (prec * 100).toFixed(0) + '%';
+  document.getElementById('th-rec').textContent  = (rec  * 100).toFixed(0) + '%';
+  document.getElementById('th-fp').textContent   = fpPer1k;
+
+  var el = document.getElementById('thresh-insight-text');
+  if (t < 0.2) {
+    el.textContent = 'Very low threshold (' + t.toFixed(2) + '): near-perfect recall but ' + fpPer1k + ' false alarms per 1k transactions. Use only if missing fraud is extremely costly and FP resolution is cheap (automated review).';
+  } else if (t < 0.45) {
+    el.textContent = 'Recommended range (' + t.toFixed(2) + '): high recall with manageable false alarms. This is a good starting point for a production fraud system.';
+  } else if (t < 0.65) {
+    el.textContent = 'Conservative (' + t.toFixed(2) + '): fewer false alarms but more missed fraud. Good for low-risk merchants or when disputes are expensive.';
+  } else {
+    el.textContent = 'High threshold (' + t.toFixed(2) + '): only blocks obvious fraud. You will miss many cases. Justified only if FPs are catastrophic (e.g. blocking enterprise customers).';
+  }
+}
+
+// ── AI Tutor ──
+var SYSTEM = `You are an expert ML engineer and fraud detection mentor helping with the FraudGuard ML project at github.com/GypsianMonk/fraudguard-ml.
+
+The project architecture:
+- FastAPI inference server (src/api/) with /predict, /predict/batch, /health, /ready
+- XGBoost + TabTransformer + Stacking ensemble (src/models/)
+- 87 features: temporal velocity, behavioral, geo/network, card/device, graph (src/features/)
+- Feature store: Redis + Parquet (src/features/store.py)
+- Training: Optuna HPO, StratifiedKFold, MLflow experiment tracking (src/training/)
+- DVC data versioning, Prometheus + Grafana monitoring, Docker Compose
+
+The developer is a beginner following a 6-phase roadmap:
+1-2: Confusion matrix, precision/recall, ROC-AUC, StratifiedKFold (NOT random split)
+3: Imbalance — SMOTE inside CV pipeline, class_weight, undersampling tradeoffs
+4: Compare LR → RF → XGBoost using AUC-PR and recall (NEVER accuracy)
+5: Threshold tuning, real-time vs batch, latency tradeoffs
+6: Implement FastAPI /predict endpoint, Docker deployment
+
+Core rules to always enforce:
+- Accuracy is useless for fraud (severely imbalanced: 0.1-1% fraud)
+- AUC-PR is more important than AUC-ROC for imbalanced datasets
+- SMOTE must go INSIDE cross-validation (use imblearn.pipeline.Pipeline) to prevent leakage
+- Start with class_weight='balanced' before trying SMOTE
+- Threshold is a business decision: usually want 85-95% recall
+
+Be specific, practical, give runnable code that fits their actual file paths (src/models/xgboost_model.py, src/training/trainer.py, src/features/engineer.py etc.). Be concise but complete. If they ask why something matters, explain it clearly with their specific context.`;
+
+var chatHistory = [];
+
+function addMessage(role, text) {
+  var msgs = document.getElementById('chat-messages');
+  var div = document.createElement('div');
+  div.className = 'chat-msg' + (role === 'user' ? ' user' : '');
+  var av = document.createElement('div');
+  av.className = 'avatar';
+  av.textContent = role === 'user' ? 'You' : 'AI';
+  var bubble = document.createElement('div');
+  bubble.className = 'chat-bubble';
+  bubble.textContent = text;
+  div.appendChild(av);
+  div.appendChild(bubble);
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return bubble;
+}
+
+async function sendMessage() {
+  var input = document.getElementById('chat-input');
+  var msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  addMessage('user', msg);
+  chatHistory.push({ role: 'user', content: msg });
+
+  var btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  var typingBubble = addMessage('ai', 'Thinking…');
+
+  try {
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: SYSTEM,
+        messages: chatHistory
+      })
+    });
+    var data = await resp.json();
+    var reply = (data.content && data.content[0] && data.content[0].text)
+      ? data.content[0].text
+      : 'Something went wrong — try again.';
+    typingBubble.textContent = reply;
+    chatHistory.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    typingBubble.textContent = 'Connection error. Open this file on claude.ai for the AI tutor to work.';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Send ↗';
+  document.getElementById('chat-messages').scrollTop = 9999;
+}
+
+function quickAsk(q) {
+  document.getElementById('chat-input').value = q;
+  sendMessage();
+}
+
+// Init
+updateCM();
+</script>
+</body>
+</html>
