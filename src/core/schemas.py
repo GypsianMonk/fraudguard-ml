@@ -98,6 +98,24 @@ class BatchTransactionRequest(BaseModel):
     callback_url: str | None = None
 
 
+class ModelInfoResponse(BaseModel):
+    model_version: str
+    model_stage: str
+    training_date: str | None = None
+    metrics: dict[str, float] = {}
+    feature_count: int = 0
+    ensemble_weights: dict[str, float] = {}
+
+
+class ModelReloadRequest(BaseModel):
+    version: str = "latest"
+    dry_run: bool = False
+
+
+# Alias for backwards compatibility with tests that import Location
+Location = GeoLocation
+
+
 class BatchPredictionResponse(BaseModel):
     batch_id: str
     total: int

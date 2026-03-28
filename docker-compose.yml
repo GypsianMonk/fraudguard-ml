@@ -1,0 +1,250 @@
+# docker-compose.yml
+# Full FraudGuard ML stack for local development and staging deployment.
+#
+# Services:
+#   api          — FastAPI inference server (port 8000)
+#   training     — Training pipeline runner (one-shot job)
+#   mlflow       — Experiment tracking + model registry (port 5000)
+#   redis        — Feature store (port 6379)
+#   kafka        — Streaming transactions (port 9092)
+#   zookeeper    — Kafka dependency (port 2181)
+#   kafka-ui     — Kafka management UI (port 8080)
+#   prometheus   — Metrics scraper (port 9090)
+#   grafana      — Dashboards (port 3000, admin/admin)
+#
+# Usage:
+#   make docker-up        # Start all services
+#   make docker-down      # Stop all services
+#   make docker-logs      # Tail API logs
+
+services:
+
+  # ── Inference API ───────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    image: fraudguard-api:latest
+    container_name: fraudguard-api
+    ports:
+      - "8000:8000"
+    environment:
+      ENV: dev
+      LOG_LEVEL: INFO
+      API_KEYS: dev-key-local,dev-key-test
+      JWT_SECRET: dev-secret-change-in-prod
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_VERSION: latest
+      REDIS_URL: redis://redis:6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    volumes:
+      - ./models/artifacts:/app/models/artifacts
+      - ./configs:/app/configs:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - fraudguard-net
+
+  # ── Training Pipeline ───────────────────────────────────────────────────────
+  training:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.training
+    image: fraudguard-training:latest
+    container_name: fraudguard-training
+    environment:
+      ENV: dev
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      REDIS_URL: redis://redis:6379
+    command:
+      - "--data"
+      - "data/raw/transactions.parquet"
+      - "--experiment"
+      - "fraudguard-production"
+      - "--skip-tabtransformer"
+    volumes:
+      - ./data:/app/data
+      - ./models/artifacts:/app/models/artifacts
+      - ./mlruns:/app/mlruns
+    depends_on:
+      - mlflow
+      - redis
+    profiles:
+      - training
+    networks:
+      - fraudguard-net
+
+  # ── MLflow ──────────────────────────────────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.10.2
+    container_name: fraudguard-mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+    command:
+      - mlflow
+      - server
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:///mlflow.db
+      - --default-artifact-root
+      - /mlartifacts
+      - --serve-artifacts
+    volumes:
+      - mlflow-db:/mlflow.db
+      - mlflow-artifacts:/mlartifacts
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - fraudguard-net
+
+  # ── Redis (Feature Store) ───────────────────────────────────────────────────
+  redis:
+    image: redis:7.2-alpine
+    container_name: fraudguard-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - fraudguard-net
+
+  # ── Zookeeper (Kafka dependency) ────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: fraudguard-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    restart: unless-stopped
+    networks:
+      - fraudguard-net
+
+  # ── Kafka (Transaction Streaming) ───────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: fraudguard-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:29092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - fraudguard-net
+
+  # ── Kafka UI ────────────────────────────────────────────────────────────────
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: fraudguard-kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: fraudguard
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      - kafka
+    restart: unless-stopped
+    networks:
+      - fraudguard-net
+
+  # ── Prometheus ──────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: fraudguard-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--storage.tsdb.retention.time=15d"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+    networks:
+      - fraudguard-net
+
+  # ── Grafana ─────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: fraudguard-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/fraud_overview.json
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docs/grafana:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - fraudguard-net
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  mlflow-db:
+  mlflow-artifacts:
+  redis-data:
+  zookeeper-data:
+  zookeeper-logs:
+  kafka-data:
+  prometheus-data:
+  grafana-data:
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  fraudguard-net:
+    driver: bridge

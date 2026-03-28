@@ -43,3 +43,11 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Keep empty directories tracked
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/features/.gitkeep
+!models/artifacts/.gitkeep
+!mlruns/.gitkeep
+!logs/.gitkeep
