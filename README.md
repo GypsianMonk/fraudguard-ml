@@ -1,159 +1,244 @@
-# 🛡️ FraudGuard ML
+<div align="center">
 
-**Production-grade real-time transaction fraud detection system**
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1a0000,50:7f1d1d,100:1a0000&height=220&section=header&text=FraudGuard+ML&fontSize=70&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Production-Grade%20Real-Time%20Transaction%20Fraud%20Detection%20System&descAlignY=60&descSize=15&descColor=fca5a5" width="100%"/>
 
-[![CI/CD](https://github.com/your-org/fraudguard-ml/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/fraudguard-ml/actions)
-[![Coverage](https://img.shields.io/codecov/c/github/your-org/fraudguard-ml)](https://codecov.io/gh/your-org/fraudguard-ml)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=19&pause=1000&color=FCA5A5&center=true&vCenter=true&width=850&lines=XGBoost+%2B+TabTransformer+Ensemble+%7C+87+Engineered+Features;AUC-ROC+0.9847+%7C+P99+Latency+47ms+%7C+1M+Transaction+Benchmark;Real-Time+%2B+Batch+%2B+Streaming+%7C+A%2FB+%2B+Shadow+%2B+Canary+%F0%9F%9A%80)](https://git.io/typing-svg)
 
----
+<br/>
 
-## System Design
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-Passing-22c55e?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/GypsianMonk/fraudguard-ml/actions)
+[![Coverage](https://img.shields.io/badge/Coverage-Tracked-0e9de0?style=for-the-badge&logo=codecov&logoColor=white)](https://codecov.io/gh/GypsianMonk/fraudguard-ml)
+[![Python](https://img.shields.io/badge/Python_3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Inference_Server-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![MLflow](https://img.shields.io/badge/MLflow-Experiment_Tracking-0194E2?style=for-the-badge&logo=mlflow&logoColor=white)](https://mlflow.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          DATA INGESTION LAYER                           │
-│                                                                         │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐  │
-│   │  Batch CSVs  │     │  Kafka Topic │     │  REST Webhook Events │  │
-│   │  (S3/GCS)    │     │  (Streaming) │     │  (Real-time txns)    │  │
-│   └──────┬───────┘     └──────┬───────┘     └─────────┬────────────┘  │
-│          └──────────────────┬─┘─────────────────────── ┘              │
-│                             │                                           │
-│                    ┌────────▼────────┐                                 │
-│                    │  Data Validator  │  (Great Expectations)           │
-│                    └────────┬────────┘                                 │
-└─────────────────────────────┼───────────────────────────────────────────┘
-                              │
-┌─────────────────────────────▼───────────────────────────────────────────┐
-│                       FEATURE ENGINEERING LAYER                         │
-│                                                                         │
-│   ┌──────────────────┐    ┌──────────────────┐   ┌──────────────────┐  │
-│   │  Temporal Feats  │    │  Behavioral Feats │   │  Network Feats   │  │
-│   │  (velocity, RFM) │    │  (device, geo)    │   │  (graph embeds)  │  │
-│   └────────┬─────────┘    └────────┬──────────┘   └────────┬─────────┘  │
-│            └────────────────────── ┘ ────────────────────── ┘           │
-│                                    │                                     │
-│                          ┌─────────▼──────────┐                         │
-│                          │   Feature Store     │  (Redis + Parquet)      │
-│                          └─────────┬───────────┘                        │
-└────────────────────────────────────┼────────────────────────────────────┘
-                                     │
-┌────────────────────────────────────▼────────────────────────────────────┐
-│                            TRAINING PIPELINE                            │
-│                                                                         │
-│   ┌───────────────┐     ┌───────────────┐     ┌──────────────────────┐ │
-│   │  XGBoost      │     │  PyTorch      │     │  Ensemble Stacker    │ │
-│   │  Gradient     │     │  TabTransformer│     │  (Meta-learner)      │ │
-│   │  Boosting     │     │  Neural Net   │     │                      │ │
-│   └───────────────┘     └───────────────┘     └──────────────────────┘ │
-│                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │              MLflow Experiment Tracking + Model Registry        │   │
-│   │              Optuna Hyperparameter Optimization                 │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
-                                     │
-┌────────────────────────────────────▼────────────────────────────────────┐
-│                          INFERENCE LAYER                                │
-│                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                    FastAPI Inference Server                     │   │
-│   │   • Real-time single prediction  (<50ms P99 latency)           │   │
-│   │   • Batch prediction endpoint                                   │   │
-│   │   • Async streaming consumer                                    │   │
-│   └──────────────────────────┬──────────────────────────────────────┘   │
-│                              │                                          │
-│   ┌──────────────────────────▼──────────────────────────────────────┐   │
-│   │              Model Serving Infrastructure                       │   │
-│   │   • A/B Testing / Shadow Mode / Canary Rollout                 │   │
-│   │   • Feature retrieval from Redis (<5ms)                        │   │
-│   │   • Prediction caching (idempotent)                            │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
-                                     │
-┌────────────────────────────────────▼────────────────────────────────────┐
-│                         MONITORING LAYER                                │
-│   Prometheus metrics → Grafana dashboards → PagerDuty alerts            │
-│   • Data drift detection (KS test, PSI)                                │
-│   • Model performance degradation alerts                               │
-│   • Latency P50/P95/P99 tracking                                       │
-│   • Fraud rate & precision/recall monitoring                           │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+</div>
 
 ---
 
-## Project Structure
+## ◈ System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          DATA INGESTION LAYER                            │
+│                                                                          │
+│   ┌──────────────┐      ┌──────────────┐      ┌──────────────────────┐  │
+│   │  Batch CSVs  │      │  Kafka Topic │      │  REST Webhook Events │  │
+│   │  (S3 / GCS)  │      │  (Streaming) │      │  (Real-time txns)    │  │
+│   └──────┬───────┘      └──────┬───────┘      └──────────┬───────────┘  │
+│          └───────────────────┬─┘──────────────────────────┘             │
+│                              │                                           │
+│                    ┌─────────▼─────────┐                                │
+│                    │  Data Validator    │  (Great Expectations)          │
+│                    └─────────┬─────────┘                                │
+└──────────────────────────────┼───────────────────────────────────────────┘
+                               │
+┌──────────────────────────────▼───────────────────────────────────────────┐
+│                       FEATURE ENGINEERING LAYER                          │
+│                                                                          │
+│   ┌──────────────────┐   ┌───────────────────┐   ┌──────────────────┐  │
+│   │  Temporal Feats  │   │  Behavioral Feats  │   │  Network Feats   │  │
+│   │  velocity · RFM  │   │  device · geo      │   │  graph embeds    │  │
+│   └────────┬─────────┘   └─────────┬──────────┘   └────────┬─────────┘  │
+│            └─────────────────────┬─┘──────────────────────┘            │
+│                                  │                                       │
+│                        ┌─────────▼──────────┐                           │
+│                        │    Feature Store    │  (Redis + Parquet)        │
+│                        └─────────┬───────────┘                          │
+└──────────────────────────────────┼───────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼───────────────────────────────────────┐
+│                            TRAINING PIPELINE                             │
+│                                                                          │
+│   ┌───────────────┐      ┌──────────────────┐    ┌────────────────────┐ │
+│   │   XGBoost     │      │  TabTransformer   │    │  Ensemble Stacker  │ │
+│   │   Gradient    │      │  (PyTorch Attn)   │    │  (Meta-learner)    │ │
+│   │   Boosting    │      │  Neural Network   │    │  LogReg calibrated │ │
+│   └───────────────┘      └──────────────────┘    └────────────────────┘ │
+│                                                                          │
+│   ┌──────────────────────────────────────────────────────────────────┐  │
+│   │        MLflow Experiment Tracking + Model Registry               │  │
+│   │        Optuna Hyperparameter Optimization                        │  │
+│   └──────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼───────────────────────────────────────┐
+│                           INFERENCE LAYER                                │
+│                                                                          │
+│   ┌──────────────────────────────────────────────────────────────────┐  │
+│   │                  FastAPI Inference Server                        │  │
+│   │   • Real-time single prediction  (< 50ms P99 latency)           │  │
+│   │   • Batch prediction endpoint                                    │  │
+│   │   • Async streaming consumer                                     │  │
+│   └───────────────────────────┬──────────────────────────────────────┘  │
+│                               │                                          │
+│   ┌───────────────────────────▼──────────────────────────────────────┐  │
+│   │               Model Serving Infrastructure                       │  │
+│   │   • A/B Testing · Shadow Mode · Canary Rollout                  │  │
+│   │   • Feature retrieval from Redis (< 5ms)                        │  │
+│   │   • Prediction caching (idempotent)                             │  │
+│   └──────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼───────────────────────────────────────┐
+│                          MONITORING LAYER                                │
+│   Prometheus metrics → Grafana dashboards → PagerDuty alerts             │
+│   • Data drift detection (KS test, PSI)                                  │
+│   • Model performance degradation alerts                                 │
+│   • Latency P50 / P95 / P99 tracking                                     │
+│   • Fraud rate & precision / recall monitoring                           │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ◈ Model Performance
+
+### Stacking Ensemble — 1M Transaction Benchmark
+
+<div align="center">
+
+| Metric | Value |
+|:---:|:---:|
+| AUC-ROC | **0.9847** |
+| AUC-PR | **0.8912** |
+| F1 @ threshold=0.5 | **0.831** |
+| Precision @ 95% Recall | **0.743** |
+| KS Statistic | **0.812** |
+| P99 Inference Latency | **47ms** |
+
+</div>
+
+### Ensemble Design
+
+The production model is a **3-layer stacking ensemble:**
+
+```
+Base Layer 1:  XGBoost          → tabular features, fast inference
+Base Layer 2:  TabTransformer   → PyTorch attention for categorical features
+Meta-Learner:  Logistic Reg     → calibrated probability combination
+```
+
+### Feature Groups — 87 Total Features
+
+<div align="center">
+
+| Group | Count | Examples |
+|:---:|:---:|:---|
+| ⏱️ Temporal Velocity | 18 | `txn_count_1h` · `amount_sum_24h` · `unique_merchants_7d` |
+| 🧠 Behavioral | 24 | `avg_txn_amount` · `preferred_categories` · `night_ratio` |
+| 🌍 Geo / Network | 12 | `distance_from_home` · `ip_risk_score` · `vpn_detected` |
+| 💳 Transaction | 15 | `amount_zscore` · `is_round_amount` · `merchant_risk` |
+| 📱 Card / Device | 10 | `device_age_days` · `new_device` · `card_present` |
+| 🕸️ Graph | 8 | `shared_device_count` · `merchant_fraud_rate_30d` |
+
+</div>
+
+---
+
+## ◈ Tech Stack
+
+<div align="center">
+
+### ⟡ ML & Training
+[![XGBoost](https://img.shields.io/badge/XGBoost-Gradient_Boosting-FF6600?style=for-the-badge)](https://xgboost.readthedocs.io/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-TabTransformer-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-Meta_Learner-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
+[![Optuna](https://img.shields.io/badge/Optuna-HPO-6C4EFF?style=for-the-badge)](https://optuna.org/)
+
+### ⟡ MLOps & Tracking
+[![MLflow](https://img.shields.io/badge/MLflow-Experiment_Tracking-0194E2?style=for-the-badge&logo=mlflow&logoColor=white)](https://mlflow.org/)
+[![DVC](https://img.shields.io/badge/DVC-Data_Versioning-945DD5?style=for-the-badge&logo=dvc&logoColor=white)](https://dvc.org/)
+
+### ⟡ Inference & API
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Redis](https://img.shields.io/badge/Redis-Feature_Store-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![Kafka](https://img.shields.io/badge/Apache_Kafka-Streaming-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+
+### ⟡ Infrastructure & Monitoring
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)](https://prometheus.io/)
+[![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)](https://grafana.com/)
+[![Great Expectations](https://img.shields.io/badge/Great_Expectations-Data_Validation-FF6B6B?style=for-the-badge)](https://greatexpectations.io/)
+
+### ⟡ Testing & Quality
+[![Pytest](https://img.shields.io/badge/Pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](https://docs.pytest.org/)
+[![Ruff](https://img.shields.io/badge/Ruff-Linter-D7FF64?style=for-the-badge)](https://docs.astral.sh/ruff/)
+[![mypy](https://img.shields.io/badge/mypy-Type_Checker-2A6DB2?style=for-the-badge)](https://mypy.readthedocs.io/)
+
+</div>
+
+---
+
+## ◈ Project Structure
 
 ```
 fraudguard-ml/
-├── src/
-│   ├── api/                    # FastAPI inference server
-│   │   ├── __init__.py
-│   │   ├── app.py              # FastAPI application factory
-│   │   ├── dependencies.py     # DI container
-│   │   ├── middleware.py       # Auth, logging, rate limiting
+│
+├── 🌐 src/
+│   ├── api/                       ← FastAPI inference server
+│   │   ├── app.py                 ← Application factory
+│   │   ├── dependencies.py        ← DI container
+│   │   ├── middleware.py          ← Auth · logging · rate limiting
 │   │   └── routes/
-│   │       ├── predict.py      # Prediction endpoints
-│   │       ├── health.py       # Health & readiness probes
-│   │       └── admin.py        # Model management endpoints
-│   ├── core/                   # Domain models & interfaces
-│   │   ├── config.py           # Pydantic settings
-│   │   ├── exceptions.py       # Custom exceptions
-│   │   ├── interfaces.py       # Abstract base classes
-│   │   └── schemas.py          # Request/response schemas
-│   ├── data/                   # Data layer
+│   │       ├── predict.py         ← Prediction endpoints
+│   │       ├── health.py          ← Liveness & readiness probes
+│   │       └── admin.py           ← Model management endpoints
+│   │
+│   ├── core/                      ← Domain models & interfaces
+│   │   ├── config.py              ← Pydantic settings
+│   │   ├── exceptions.py          ← Custom exceptions
+│   │   ├── interfaces.py          ← Abstract base classes
+│   │   └── schemas.py             ← Request / response schemas
+│   │
+│   ├── data/                      ← Data layer
 │   │   ├── ingestion/
 │   │   │   ├── batch_ingester.py
 │   │   │   └── stream_consumer.py
 │   │   └── validation/
 │   │       └── validator.py
-│   ├── features/               # Feature engineering
-│   │   ├── engineer.py         # Feature pipeline
-│   │   ├── temporal.py         # Time-based features
-│   │   ├── behavioral.py       # User behavior features
-│   │   └── store.py            # Feature store client
-│   ├── models/                 # ML models
-│   │   ├── base.py             # Abstract model interface
-│   │   ├── xgboost_model.py    # XGBoost classifier
-│   │   ├── tabtransformer.py   # PyTorch TabTransformer
-│   │   ├── ensemble.py         # Stacking ensemble
-│   │   └── registry.py         # MLflow model registry
-│   ├── training/               # Training pipeline
-│   │   ├── trainer.py          # Main training orchestrator
-│   │   ├── evaluator.py        # Advanced metrics & reporting
-│   │   └── tuner.py            # Optuna HPO
-│   ├── monitoring/             # Observability
-│   │   ├── drift_detector.py   # Data & concept drift
-│   │   ├── metrics_collector.py# Prometheus metrics
-│   │   └── alerting.py         # Alert rules
-│   └── utils/
-│       ├── logging.py          # Structured logging
-│       └── io.py               # File I/O helpers
-├── tests/
-│   ├── unit/                   # Unit tests (fast, isolated)
-│   └── integration/            # Integration tests (with services)
-├── configs/
-│   ├── base.yaml               # Base configuration
-│   ├── training.yaml           # Training hyperparameters
-│   └── serving.yaml            # Serving configuration
-├── scripts/
-│   ├── generate_synthetic_data.py
-│   ├── run_training.py
-│   └── run_backtest.py
-├── docker/
+│   │
+│   ├── features/                  ← Feature engineering
+│   │   ├── engineer.py            ← Feature pipeline
+│   │   ├── temporal.py            ← Time-based features
+│   │   ├── behavioral.py          ← User behavior features
+│   │   └── store.py               ← Feature store client
+│   │
+│   ├── models/                    ← ML models
+│   │   ├── base.py                ← Abstract model interface
+│   │   ├── xgboost_model.py       ← XGBoost classifier
+│   │   ├── tabtransformer.py      ← PyTorch TabTransformer
+│   │   ├── ensemble.py            ← Stacking ensemble
+│   │   └── registry.py            ← MLflow model registry
+│   │
+│   ├── training/                  ← Training pipeline
+│   │   ├── trainer.py             ← Main training orchestrator
+│   │   ├── evaluator.py           ← Advanced metrics & reporting
+│   │   └── tuner.py               ← Optuna HPO
+│   │
+│   └── monitoring/                ← Observability
+│       ├── drift_detector.py      ← Data & concept drift
+│       ├── metrics_collector.py   ← Prometheus metrics
+│       └── alerting.py            ← Alert rules
+│
+├── 🧪 tests/
+│   ├── unit/                      ← Fast, isolated unit tests
+│   └── integration/               ← Integration tests (with services)
+│
+├── ⚙️  configs/
+│   ├── base.yaml
+│   ├── training.yaml
+│   └── serving.yaml
+│
+├── 🐳 docker/
 │   ├── Dockerfile.api
 │   ├── Dockerfile.training
 │   └── nginx.conf
-├── .github/workflows/
-│   ├── ci.yml
-│   └── cd.yml
+│
 ├── docker-compose.yml
 ├── docker-compose.prod.yml
-├── dvc.yaml                    # DVC pipeline
-├── .dvcignore
+├── dvc.yaml                       ← DVC pipeline definition
 ├── pyproject.toml
 ├── Makefile
 └── README.md
@@ -161,19 +246,13 @@ fraudguard-ml/
 
 ---
 
-## Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- Docker & Docker Compose
-- Make
+## ◈ Quick Start
 
 ### Local Development
 
 ```bash
 # 1. Clone & setup
-git clone https://github.com/your-org/fraudguard-ml.git
+git clone https://github.com/GypsianMonk/fraudguard-ml.git
 cd fraudguard-ml
 make setup
 
@@ -183,18 +262,14 @@ make generate-data
 # 3. Run full training pipeline
 make train
 
-# 4. Start inference server (with all dependencies)
+# 4. Start inference server
 make serve
 
 # 5. Run tests
 make test
 
-# 6. View MLflow UI
+# 6. MLflow UI → http://localhost:5000
 make mlflow-ui
-# → http://localhost:5000
-
-# 7. View Grafana dashboards
-# → http://localhost:3000 (admin/admin)
 ```
 
 ### Docker Compose (Recommended)
@@ -203,33 +278,36 @@ make mlflow-ui
 # Start all services: API, MLflow, Redis, Kafka, Prometheus, Grafana
 docker-compose up -d
 
-# Check health
+# Health check
 curl http://localhost:8000/health
 
-# View logs
+# Tail logs
 docker-compose logs -f api
 ```
 
 ---
 
-## API Documentation
+## ◈ API Reference
 
-### Base URL
-```
-http://localhost:8000/api/v1
-```
+**Base URL:** `http://localhost:8000/api/v1`  
+**Auth:** `X-API-Key: your-api-key-here` on all endpoints.
 
-### Authentication
-All endpoints require an API key in the header:
-```
-X-API-Key: your-api-key-here
-```
+<div align="center">
 
----
+| Method | Endpoint | Description |
+|:---:|:---|:---|
+| `POST` | `/predict` | Real-time single fraud prediction |
+| `POST` | `/predict/batch` | Async batch fraud prediction |
+| `GET` | `/health` | Liveness probe |
+| `GET` | `/ready` | Readiness probe + model status |
+| `GET` | `/metrics` | Prometheus metrics scrape |
+| `GET` | `/admin/model/info` | Current model version info |
+| `POST` | `/admin/model/reload` | Hot-reload model version |
 
-### Endpoints
+</div>
 
-#### `POST /predict` — Real-time fraud prediction
+<details>
+<summary><b>POST /predict — Request & Response</b></summary>
 
 **Request:**
 ```json
@@ -273,7 +351,6 @@ X-API-Key: your-api-key-here
 }
 ```
 
-**Sample curl:**
 ```bash
 curl -X POST http://localhost:8000/api/v1/predict \
   -H "Content-Type: application/json" \
@@ -282,7 +359,6 @@ curl -X POST http://localhost:8000/api/v1/predict \
     "transaction_id": "txn_test001",
     "user_id": "usr_12345",
     "amount": 4999.99,
-    "merchant_id": "mrc_electronics_01",
     "merchant_category": "electronics",
     "timestamp": "2024-01-15T03:22:00Z",
     "currency": "USD",
@@ -294,109 +370,69 @@ curl -X POST http://localhost:8000/api/v1/predict \
   }'
 ```
 
----
-
-#### `POST /predict/batch` — Batch fraud prediction
-
-```bash
-curl -X POST http://localhost:8000/api/v1/predict/batch \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: dev-key-local" \
-  -d '{"transactions": [...], "async": true}'
-```
+</details>
 
 ---
 
-#### `GET /health` — Liveness probe
+## ◈ Infrastructure & Configuration
 
-```bash
-curl http://localhost:8000/health
-# {"status": "ok", "timestamp": "2024-01-15T14:00:00Z"}
+### Environment Variables
+
+<div align="center">
+
+| Variable | Description | Default |
+|:---:|:---|:---:|
+| `ENV` | Environment (`dev` / `staging` / `prod`) | `dev` |
+| `API_KEY` | API authentication key | — |
+| `MLFLOW_TRACKING_URI` | MLflow server URI | `http://mlflow:5000` |
+| `REDIS_URL` | Feature store Redis URL | `redis://redis:6379` |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka broker list | `kafka:9092` |
+| `MODEL_VERSION` | Pinned model version | `latest` |
+| `LOG_LEVEL` | Logging verbosity | `INFO` |
+
+</div>
+
+---
+
+## ◈ Monitoring
+
+### Grafana Dashboards
+
+```
+📊  Business KPIs       →  Fraud rate · false positive rate · revenue protected
+🤖  Model Performance   →  Rolling AUC · precision/recall drift over time
+⚙️  System Health       →  Request rate · latency percentiles · error rate
+🔬  Data Quality        →  Feature drift scores (PSI) · schema violations
 ```
 
-#### `GET /ready` — Readiness probe
+### Alert Conditions
 
-```bash
-curl http://localhost:8000/ready
-# {"status": "ready", "model_loaded": true, "model_version": "v2.1.0", "feature_store_connected": true}
+<div align="center">
+
+| Alert | Threshold | Severity |
+|:---:|:---|:---:|
+| AUC Drop | > 3% degradation in 24h | 🔴 Critical |
+| Latency P99 | > 200ms | 🟡 Warning |
+| Error Rate | > 1% | 🔴 Critical |
+| Feature PSI | > 0.25 any feature | 🟡 Warning |
+| Fraud Rate Spike | > 3σ from baseline | 🔴 Critical |
+
+</div>
+
+---
+
+## ◈ CI/CD Pipeline
+
 ```
-
-#### `GET /metrics` — Prometheus metrics
-
-```bash
-curl http://localhost:8000/metrics
-```
-
-#### `GET /admin/model/info` — Current model info
-
-```bash
-curl http://localhost:8000/api/v1/admin/model/info \
-  -H "X-API-Key: dev-key-local"
-```
-
-#### `POST /admin/model/reload` — Hot-reload model
-
-```bash
-curl -X POST http://localhost:8000/api/v1/admin/model/reload \
-  -H "X-API-Key: dev-key-local" \
-  -d '{"version": "v2.2.0"}'
+Push
+  → Lint (ruff) → Type Check (mypy) → Unit Tests → Build Docker Image
+  → Integration Tests → Security Scan (trivy)
+  → [main only] → Staging Deploy → Smoke Tests → Production Deploy (blue/green)
 ```
 
 ---
 
-## Model Architecture
-
-### Ensemble Design
-
-The production model is a **stacking ensemble** of:
-
-1. **XGBoost** (base learner) — handles tabular features, excellent on structured data, fast inference
-2. **TabTransformer** (base learner) — PyTorch attention-based model for categorical features
-3. **Logistic Regression** (meta-learner) — combines base learner outputs, calibrated probabilities
-
-### Feature Groups (87 total features)
-
-| Group | Count | Examples |
-|-------|-------|---------|
-| Temporal velocity | 18 | txn_count_1h, amount_sum_24h, unique_merchants_7d |
-| Behavioral | 24 | avg_txn_amount, preferred_categories, night_ratio |
-| Geo/Network | 12 | distance_from_home, ip_risk_score, vpn_detected |
-| Transaction | 15 | amount_zscore, is_round_amount, merchant_risk |
-| Card/Device | 10 | device_age_days, new_device, card_present |
-| Graph | 8 | shared_device_count, merchant_fraud_rate_30d |
-
-### Performance Metrics (held-out test set, 1M transactions)
-
-| Metric | Value |
-|--------|-------|
-| AUC-ROC | 0.9847 |
-| AUC-PR | 0.8912 |
-| F1 @ threshold=0.5 | 0.831 |
-| Precision @ 95% Recall | 0.743 |
-| KS Statistic | 0.812 |
-| P99 Inference Latency | 47ms |
-
----
-
-## Development
-
-### Running Tests
-
-```bash
-# Unit tests only (fast)
-make test-unit
-
-# Integration tests (requires Docker services)
-make test-integration
-
-# Full test suite with coverage
-make test-coverage
-
-# Specific test file
-pytest tests/unit/test_feature_engineer.py -v
-```
-
-### Data Versioning with DVC
+## ◈ Data Versioning with DVC
 
 ```bash
 # Track new dataset
@@ -404,71 +440,45 @@ dvc add data/raw/transactions.parquet
 git add data/raw/transactions.parquet.dvc
 git commit -m "feat: add Q4 2024 transaction data"
 
-# Pull data on new machine
+# Pull data on a new machine
 dvc pull
 
 # Reproduce full pipeline
 dvc repro
 ```
 
-### Experiment Tracking
+---
+
+## ◈ Testing
 
 ```bash
-# Start MLflow UI
-mlflow ui --port 5000
+# Unit tests only (fast, no services needed)
+make test-unit
 
-# Compare experiments
-python scripts/compare_experiments.py --exp-ids exp1,exp2
+# Integration tests (requires Docker)
+make test-integration
+
+# Full suite with coverage report
+make test-coverage
+
+# Single file
+pytest tests/unit/test_feature_engineer.py -v
 ```
 
 ---
 
-## Infrastructure
+## ◈ License
 
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ENV` | Environment (dev/staging/prod) | `dev` |
-| `API_KEY` | API authentication key | — |
-| `MLFLOW_TRACKING_URI` | MLflow server URI | `http://mlflow:5000` |
-| `REDIS_URL` | Feature store Redis URL | `redis://redis:6379` |
-| `KAFKA_BOOTSTRAP_SERVERS` | Kafka broker list | `kafka:9092` |
-| `MODEL_VERSION` | Pinned model version | `latest` |
-| `LOG_LEVEL` | Logging level | `INFO` |
+Licensed under the **[MIT License](LICENSE)** — use it, fork it, build on it.
 
 ---
 
-## Monitoring
+<div align="center">
 
-### Key Dashboards (Grafana)
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1a0000,50:7f1d1d,100:1a0000&height=120&section=footer" width="100%"/>
 
-- **Business KPIs**: Fraud rate, false positive rate, revenue protected
-- **Model Performance**: Rolling AUC, precision/recall drift over time
-- **System Health**: Request rate, latency percentiles, error rate
-- **Data Quality**: Feature drift scores (PSI), schema violations
+*"Fraud doesn't sleep. Neither does FraudGuard."*
 
-### Alert Conditions
+**Built with ❤️ by [GypsianMonk](https://github.com/GypsianMonk)**
 
-| Alert | Threshold | Severity |
-|-------|-----------|----------|
-| AUC drop | > 3% degradation in 24h | Critical |
-| Latency P99 | > 200ms | Warning |
-| Error rate | > 1% | Critical |
-| Feature PSI | > 0.25 any feature | Warning |
-| Fraud rate spike | > 3σ from baseline | Critical |
-
----
-
-## CI/CD Pipeline
-
-```
-Push → Lint (ruff) → Type check (mypy) → Unit tests → Build Docker image
-  → Integration tests → Security scan (trivy) → [main branch only] →
-  → Staging deploy → Smoke tests → Production deploy (blue/green)
-```
-
----
-
-## License
- Gypsianmonk
+</div>
